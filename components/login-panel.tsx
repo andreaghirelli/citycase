@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, AtSign, Compass, KeyRound, Mail } from "lucide-react";
 
 type Mode = "login" | "register";
@@ -27,6 +27,15 @@ export function LoginPanel() {
     if (mode === "login") return normalizedEmail;
     return "Scegli una password: il tuo archivio personale restera collegato a questa e-mail.";
   }, [mode, normalizedEmail, step]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const authError = params.get("auth_error");
+    if (authError) {
+      setError(authError);
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, []);
 
   async function continueWithEmail(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -86,8 +95,8 @@ export function LoginPanel() {
     if (!emailIsValid) setStep("email");
   }
 
-  function socialUnavailable(provider: string) {
-    setError(`${provider} sara collegato quando configureremo OAuth. Per ora entra con e-mail e password.`);
+  function startGoogleLogin() {
+    window.location.assign("/api/auth/google");
   }
 
   return (
@@ -194,7 +203,7 @@ export function LoginPanel() {
                 <div className="grid gap-5">
                   <button
                     type="button"
-                    onClick={() => socialUnavailable("Google")}
+                    onClick={startGoogleLogin}
                     className="grid min-h-16 grid-cols-[4rem_1fr_4rem] items-center rounded-full bg-white/[0.04] text-xl text-ink transition hover:bg-white/[0.07]"
                   >
                     <span className="ml-2 grid h-12 w-12 place-items-center rounded-full bg-white text-2xl font-bold text-[#4285f4]">G</span>
@@ -203,8 +212,8 @@ export function LoginPanel() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => socialUnavailable("Apple")}
-                    className="grid min-h-16 grid-cols-[4rem_1fr_4rem] items-center rounded-full bg-white/[0.04] text-xl text-ink transition hover:bg-white/[0.07]"
+                    onClick={() => setError("Apple Login richiede un account Apple Developer e una chiave Sign in with Apple. Lo configuriamo dopo Google.")}
+                    className="grid min-h-16 grid-cols-[4rem_1fr_4rem] items-center rounded-full bg-white/[0.025] text-xl text-ink/55 transition hover:bg-white/[0.04]"
                   >
                     <span className="ml-2 grid h-12 w-12 place-items-center rounded-full bg-white text-2xl font-bold text-black">A</span>
                     Continua con Apple

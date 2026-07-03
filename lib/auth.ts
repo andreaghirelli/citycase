@@ -45,6 +45,18 @@ export function displayNameForUser(user: { displayName?: string | null; email?: 
   return user.displayName || user.email?.split("@")[0] || user.nickname;
 }
 
+export async function uniqueNicknameFromEmail(email: string) {
+  const base = normalizeNickname(email.split("@")[0] || "analista") || "analista";
+
+  for (let index = 0; index < 50; index += 1) {
+    const nickname = index === 0 ? base : `${base}${index + 1}`;
+    const existing = await prisma.user.findUnique({ where: { nickname } });
+    if (!existing) return nickname;
+  }
+
+  return `analista-${Date.now().toString(36)}`;
+}
+
 export async function createSession(userId: string) {
   const cookieStore = await cookies();
   const value = `${userId}.${sign(userId)}`;

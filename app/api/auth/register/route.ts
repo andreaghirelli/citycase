@@ -1,18 +1,6 @@
 import { NextResponse } from "next/server";
-import { createSession, hashPassword, isValidEmail, normalizeEmail, normalizeNickname } from "@/lib/auth";
+import { createSession, hashPassword, isValidEmail, normalizeEmail, uniqueNicknameFromEmail } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-
-async function uniqueNicknameFromEmail(email: string) {
-  const base = normalizeNickname(email.split("@")[0] || "analista") || "analista";
-
-  for (let index = 0; index < 50; index += 1) {
-    const nickname = index === 0 ? base : `${base}${index + 1}`;
-    const existing = await prisma.user.findUnique({ where: { nickname } });
-    if (!existing) return nickname;
-  }
-
-  return `analista-${Date.now().toString(36)}`;
-}
 
 export async function POST(request: Request) {
   const body = await request.json();
