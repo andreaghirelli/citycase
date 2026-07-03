@@ -25,7 +25,7 @@ const nodeIcons: Record<string, React.ReactNode> = {
   question: <Search size={15} />
 };
 
-export function InvestigationWorkspace({ dossier }: { dossier: WorkspaceCase }) {
+export function InvestigationWorkspace({ dossier, mapsApiKey = "" }: { dossier: WorkspaceCase; mapsApiKey?: string }) {
   const displayName = dossier.user?.displayName || dossier.user?.email?.split("@")[0] || dossier.user?.nickname || "Analista";
   const [selectedId, setSelectedId] = useState(dossier.nodes[0]?.id ?? "");
   const [opened, setOpened] = useState<string[]>(dossier.nodes.slice(0, 3).map((node) => node.id));
@@ -172,7 +172,7 @@ export function InvestigationWorkspace({ dossier }: { dossier: WorkspaceCase }) 
         </aside>
 
         <div className="grid min-h-[620px] grid-rows-[1fr_auto]">
-          <InvestigationMap dossier={dossier} places={places} selected={selected} onSelect={openNode} />
+          <InvestigationMap dossier={dossier} places={places} selected={selected} onSelect={openNode} mapsApiKey={mapsApiKey} />
           <div className="border-t border-brass/20 bg-black/35 p-4">
             <PanelTitle title="Perché l'esperienza è viva" compact />
             <div className="grid gap-3 md:grid-cols-3">
@@ -199,7 +199,7 @@ export function InvestigationWorkspace({ dossier }: { dossier: WorkspaceCase }) 
                 <X size={18} className="text-ink/70" />
               </div>
               {selected.type === "place" && selected.latitude && selected.longitude ? (
-                <StreetViewPanel node={selected} compactImage />
+                <StreetViewPanel node={selected} compactImage mapsApiKey={mapsApiKey} />
               ) : (
                 <div className="h-44 border-y border-white/10 bg-[url('/brand/citycase-brand-board.png')] bg-cover bg-center opacity-70" />
               )}
@@ -301,11 +301,23 @@ export function InvestigationWorkspace({ dossier }: { dossier: WorkspaceCase }) 
   );
 }
 
-function InvestigationMap({ dossier, places, selected, onSelect }: { dossier: WorkspaceCase; places: NodeItem[]; selected?: NodeItem; onSelect: (nodeId: string) => void }) {
+function InvestigationMap({
+  dossier,
+  places,
+  selected,
+  onSelect,
+  mapsApiKey
+}: {
+  dossier: WorkspaceCase;
+  places: NodeItem[];
+  selected?: NodeItem;
+  onSelect: (nodeId: string) => void;
+  mapsApiKey: string;
+}) {
   const mapRef = useRef<HTMLDivElement | null>(null);
   const [googleReady, setGoogleReady] = useState(false);
   const [mapError, setMapError] = useState("");
-  const rawApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY?.trim();
+  const rawApiKey = mapsApiKey.trim();
   const apiKey = rawApiKey && rawApiKey !== "none" && rawApiKey.length > 20 ? rawApiKey : "";
 
   useEffect(() => {
@@ -390,10 +402,10 @@ function InvestigationMap({ dossier, places, selected, onSelect }: { dossier: Wo
   );
 }
 
-function StreetViewPanel({ node, compactImage = false }: { node: NodeItem; compactImage?: boolean }) {
+function StreetViewPanel({ node, compactImage = false, mapsApiKey = "" }: { node: NodeItem; compactImage?: boolean; mapsApiKey?: string }) {
   const ref = useRef<HTMLDivElement | null>(null);
   const [ready, setReady] = useState(false);
-  const rawApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY?.trim();
+  const rawApiKey = mapsApiKey.trim();
   const apiKey = rawApiKey && rawApiKey !== "none" && rawApiKey.length > 20 ? rawApiKey : "";
 
   useEffect(() => {

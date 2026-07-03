@@ -67,7 +67,7 @@ export default async function CasePage({ params }: { params: Promise<{ caseId: s
         </div>
       </section>
 
-      <InvestigationWorkspace dossier={dossier} />
+      <InvestigationWorkspace dossier={dossier} mapsApiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? ""} />
     </main>
   );
 }
