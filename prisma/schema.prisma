@@ -1,0 +1,238 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum NodeType {
+  person
+  place
+  document
+  event
+  object
+  hypothesis
+  question
+}
+
+enum ReliabilityLevel {
+  verified
+  documented
+  probable
+  oral_tradition
+  citycase_hypothesis
+}
+
+enum ProgressStatus {
+  not_started
+  in_progress
+  completed
+}
+
+model City {
+  id        String   @id @default(cuid())
+  name      String
+  country   String   @default("Italia")
+  latitude  Float
+  longitude Float
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  cases Case[]
+
+  @@map("cities")
+}
+
+model Case {
+  id          String           @id @default(cuid())
+  caseNumber  String           @unique
+  title       String
+  subtitle    String?
+  year        Int
+  summary     String
+  coverNote   String?
+  status      String           @default("open")
+  cityId      String
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  city            City             @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  nodes           Node[]
+  connections     NodeConnection[]
+  documents       Document[]
+  questions       Question[]
+  liveUnlocks     LiveUnlock[]
+  userProgress    UserProgress[]
+  userConnections UserConnection[]
+  userTheories    UserTheory[]
+
+  @@map("cases")
+}
+
+model Node {
+  id          String           @id @default(cuid())
+  caseId      String
+  type        NodeType
+  title       String
+  subtitle    String?
+  description String
+  dateLabel   String?
+  latitude    Float?
+  longitude   Float?
+  address     String?
+  reliability ReliabilityLevel @default(documented)
+  discovered  Boolean          @default(true)
+  order       Int              @default(0)
+  metadata    Json?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  case                    Case             @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  documents               Document[]
+  sourceConnections       NodeConnection[] @relation("SourceNode")
+  targetConnections       NodeConnection[] @relation("TargetNode")
+  notes                   UserNote[]
+  sourceUserConnections   UserConnection[] @relation("UserSourceNode")
+  targetUserConnections   UserConnection[] @relation("UserTargetNode")
+  liveUnlocks             LiveUnlock[]
+
+  @@index([caseId, type])
+  @@map("nodes")
+}
+
+model NodeConnection {
+  id          String           @id @default(cuid())
+  caseId      String
+  sourceId    String
+  targetId    String
+  label       String
+  description String?
+  reliability ReliabilityLevel @default(documented)
+  createdAt   DateTime         @default(now())
+
+  case   Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  source Node @relation("SourceNode", fields: [sourceId], references: [id], onDelete: Cascade)
+  target Node @relation("TargetNode", fields: [targetId], references: [id], onDelete: Cascade)
+
+  @@index([caseId])
+  @@map("node_connections")
+}
+
+model Document {
+  id          String           @id @default(cuid())
+  caseId      String
+  nodeId      String?
+  title       String
+  kind        String
+  excerpt     String
+  content     String
+  sourceLabel String?
+  dateLabel   String?
+  reliability ReliabilityLevel @default(documented)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  case Case  @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  node Node? @relation(fields: [nodeId], references: [id], onDelete: SetNull)
+
+  @@index([caseId])
+  @@map("documents")
+}
+
+model Question {
+  id          String   @id @default(cuid())
+  caseId      String
+  text        String
+  context     String?
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@map("questions")
+}
+
+model LiveUnlock {
+  id              String   @id @default(cuid())
+  caseId          String
+  nodeId          String
+  title           String
+  description     String
+  unlockRadiusM   Int      @default(120)
+  unlockedContent String
+  createdAt       DateTime @default(now())
+
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  node Node @relation(fields: [nodeId], references: [id], onDelete: Cascade)
+
+  @@index([caseId])
+  @@map("live_unlocks")
+}
+
+model UserProgress {
+  id              String         @id @default(cuid())
+  userId          String
+  caseId          String
+  status          ProgressStatus @default(in_progress)
+  discoveredNodes Json           @default("[]")
+  openedDocuments Json           @default("[]")
+  unlockedLive    Json           @default("[]")
+  progressPercent Int            @default(0)
+  updatedAt       DateTime       @updatedAt
+  createdAt       DateTime       @default(now())
+
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, caseId])
+  @@map("user_progress")
+}
+
+model UserNote {
+  id        String   @id @default(cuid())
+  userId    String
+  nodeId    String
+  body      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  node Node @relation(fields: [nodeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, nodeId])
+  @@map("user_notes")
+}
+
+model UserConnection {
+  id          String   @id @default(cuid())
+  userId      String
+  caseId      String
+  sourceId    String
+  targetId    String
+  label       String
+  description String?
+  createdAt   DateTime @default(now())
+
+  case   Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  source Node @relation("UserSourceNode", fields: [sourceId], references: [id], onDelete: Cascade)
+  target Node @relation("UserTargetNode", fields: [targetId], references: [id], onDelete: Cascade)
+
+  @@index([userId, caseId])
+  @@map("user_connections")
+}
+
+model UserTheory {
+  id        String   @id @default(cuid())
+  userId    String
+  caseId    String
+  title     String
+  body      String
+  confidence Int     @default(50)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@index([userId, caseId])
+  @@map("user_theories")
+}

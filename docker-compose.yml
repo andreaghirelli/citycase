@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: citycase-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: citycase
+    ports:
+      - "5432:5432"
+    volumes:
+      - citycase-postgres-data:/var/lib/postgresql/data
+
+volumes:
+  citycase-postgres-data:

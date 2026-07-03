@@ -1,0 +1,38 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background:
+    radial-gradient(circle at top left, rgba(136, 160, 150, 0.12), transparent 36rem),
+    linear-gradient(180deg, #0b0d10 0%, #11151b 100%);
+  color: #d9ded8;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+.map-grid {
+  background-image:
+    linear-gradient(rgba(217, 222, 216, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(217, 222, 216, 0.06) 1px, transparent 1px);
+  background-size: 44px 44px;
+}
+
+.thin-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #667085 #151b23;
+}
