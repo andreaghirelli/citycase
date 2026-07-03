@@ -36,6 +36,7 @@ cp .env.example .env
 ```env
 DATABASE_URL="postgresql://postgres:postgres@localhost:5432/citycase?schema=public"
 NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=""
+AUTH_SECRET="cambia-questa-stringa-in-produzione"
 ```
 
 Opzionale: se vuoi un PostgreSQL locale rapido, il progetto include `docker-compose.yml`:
@@ -48,6 +49,12 @@ docker compose up -d
 
 ```bash
 npx prisma migrate dev
+```
+
+Se stai deployando su Coolify e non hai ancora migration salvate, puoi inizializzare lo schema con:
+
+```bash
+npx prisma db push
 ```
 
 5. Carica il caso demo:
@@ -66,13 +73,25 @@ Apri `http://localhost:3000`.
 
 ## Google Maps e Street View
 
-Senza `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`, l'MVP mostra una mappa fallback navigabile con marker demo. Inserendo una chiave valida, l'area centrale usa Google Maps JavaScript API e i nodi `place` mostrano Street View nel pannello destro.
+Senza una vera `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`, l'MVP mostra una mappa fallback navigabile con marker demo. Inserendo una chiave valida, l'area centrale usa Google Maps JavaScript API e i nodi `place` mostrano Street View nel pannello destro.
+
+Su Coolify la chiave Google Maps deve essere disponibile a build time: dopo averla aggiunta nelle variabili ambiente, fai un nuovo deploy.
+
+## Accesso
+
+La home mostra un form nickname/password. Ogni nickname salva progressi, note e connessioni personali separati.
+
+Il seed crea anche un profilo demo:
+
+- nickname: `archivista`
+- password: `citycase1817`
 
 ## Modelli Prisma
 
 Lo schema include:
 
 - `City`
+- `User`
 - `Case`
 - `Node`
 - `NodeConnection`

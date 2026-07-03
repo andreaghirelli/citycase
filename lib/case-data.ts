@@ -1,8 +1,9 @@
 import { prisma } from "@/lib/prisma";
-import { getDemoUserId } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
 
 export async function getCases() {
-  const userId = getDemoUserId();
+  const user = await getCurrentUser();
+  const userId = user?.id ?? "";
 
   const cases = await prisma.case.findMany({
     orderBy: [{ caseNumber: "asc" }],
@@ -36,7 +37,8 @@ export async function getCases() {
 }
 
 export async function getCaseWorkspace(caseId: string) {
-  const userId = getDemoUserId();
+  const user = await getCurrentUser();
+  const userId = user?.id ?? "";
 
   const dossier = await prisma.case.findUnique({
     where: { id: caseId },
@@ -76,6 +78,7 @@ export async function getCaseWorkspace(caseId: string) {
     summary: dossier.summary,
     coverNote: dossier.coverNote,
     city: dossier.city,
+    user,
     progressPercent: dossier.userProgress[0]?.progressPercent ?? 0,
     nodes: dossier.nodes.map((node) => ({
       id: node.id,

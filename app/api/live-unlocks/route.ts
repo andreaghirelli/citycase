@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server";
-import { getDemoUserId } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
 import { distanceInMeters } from "@/lib/geo";
 import { prisma } from "@/lib/prisma";
 
 export async function POST(request: Request) {
-  const userId = getDemoUserId();
+  const user = await getCurrentUser();
+  if (!user) {
+    return NextResponse.json({ error: "Accesso richiesto" }, { status: 401 });
+  }
+  const userId = user.id;
   const body = await request.json();
   const caseId = String(body.caseId ?? "");
   const latitude = Number(body.latitude);

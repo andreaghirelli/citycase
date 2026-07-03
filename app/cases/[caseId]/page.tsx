@@ -3,10 +3,17 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, FolderOpen } from "lucide-react";
 import { getCaseWorkspace } from "@/lib/case-data";
 import { InvestigationWorkspace } from "@/components/investigation-workspace";
+import { getCurrentUser } from "@/lib/auth";
+import { LoginPanel } from "@/components/login-panel";
 
 export const dynamic = "force-dynamic";
 
 export default async function CasePage({ params }: { params: Promise<{ caseId: string }> }) {
+  const user = await getCurrentUser();
+  if (!user) {
+    return <LoginPanel />;
+  }
+
   const { caseId } = await params;
   const dossier = await getCaseWorkspace(caseId);
 

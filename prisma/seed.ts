@@ -1,3 +1,4 @@
+import { pbkdf2Sync, randomBytes } from "node:crypto";
 import { PrismaClient, ReliabilityLevel, NodeType } from "@prisma/client";
 
 const prisma = new PrismaClient();
@@ -14,6 +15,14 @@ async function main() {
   await prisma.node.deleteMany();
   await prisma.case.deleteMany();
   await prisma.city.deleteMany();
+  await prisma.user.deleteMany();
+
+  const demoUser = await prisma.user.create({
+    data: {
+      nickname: "archivista",
+      passwordHash: hashPassword("citycase1817")
+    }
+  });
 
   const city = await prisma.city.create({
     data: {
@@ -122,7 +131,7 @@ async function main() {
 
   await prisma.userProgress.create({
     data: {
-      userId: "demo-user",
+      userId: demoUser.id,
       caseId: case001.id,
       status: "in_progress",
       progressPercent: 32,
@@ -173,6 +182,12 @@ function doc(
   reliability: ReliabilityLevel
 ) {
   return { caseId, nodeId, title, kind, excerpt, content, sourceLabel, dateLabel, reliability };
+}
+
+function hashPassword(password: string) {
+  const salt = randomBytes(16).toString("hex");
+  const hash = pbkdf2Sync(password, salt, 120000, 32, "sha256").toString("hex");
+  return `${salt}:${hash}`;
 }
 
 main()

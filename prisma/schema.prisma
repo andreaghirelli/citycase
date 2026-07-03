@@ -45,6 +45,16 @@ model City {
   @@map("cities")
 }
 
+model User {
+  id           String   @id @default(cuid())
+  nickname     String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("users")
+}
+
 model Case {
   id          String           @id @default(cuid())
   caseNumber  String           @unique

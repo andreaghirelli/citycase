@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
-import { getDemoUserId } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 export async function POST(request: Request) {
-  const userId = getDemoUserId();
+  const user = await getCurrentUser();
+  if (!user) {
+    return NextResponse.json({ error: "Accesso richiesto" }, { status: 401 });
+  }
+  const userId = user.id;
   const body = await request.json();
   const nodeId = String(body.nodeId ?? "");
   const noteBody = String(body.body ?? "");

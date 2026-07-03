@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { BookOpen, Crosshair, FileText, MapPinned, Plus, Radar, Save, Search, UserRound } from "lucide-react";
+import { BookOpen, Box, ClipboardList, Crosshair, FileText, Home, MapPinned, Plus, Radar, Save, Search, UserRound, X } from "lucide-react";
 import type { WorkspaceCase } from "@/lib/case-data";
 
 type NodeItem = WorkspaceCase["nodes"][number];
@@ -43,6 +43,11 @@ export function InvestigationWorkspace({ dossier }: { dossier: WorkspaceCase }) 
   function openNode(nodeId: string) {
     setSelectedId(nodeId);
     setOpened((current) => [nodeId, ...current.filter((id) => id !== nodeId)].slice(0, 6));
+    fetch("/api/progress", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ caseId: dossier.id, nodeId })
+    }).catch(() => undefined);
   }
 
   async function saveNote() {
@@ -94,42 +99,56 @@ export function InvestigationWorkspace({ dossier }: { dossier: WorkspaceCase }) 
   }
 
   return (
-    <section className="mx-auto max-w-[1800px] border-t border-white/10 bg-archive-950">
-      <header className="grid gap-3 border-b border-white/10 bg-archive-900 px-4 py-3 lg:grid-cols-[18rem_1fr_22rem]">
+    <section className="mx-auto max-w-[1800px] border-t border-brass/20 bg-archive-950">
+      <header className="grid gap-3 border-b border-brass/20 bg-black/35 px-4 py-3 lg:grid-cols-[20rem_1fr_22rem]">
         <div className="flex items-center gap-3">
-          <img
-            src="/brand/citycase-logo-symbol.png"
-            alt="CityCase Nodo Intrecciato"
-            className="h-11 w-11 border border-brass/40 bg-archive-850 object-cover"
-          />
+          <img src="/brand/citycase-logo-symbol.png" alt="CityCase Nodo Intrecciato" className="h-12 w-12 object-cover" />
           <div>
-            <p className="text-xs uppercase tracking-[0.24em] text-ledger">CITYCASE</p>
-            <p className="text-sm text-archive-500">Nodo Intrecciato</p>
+            <p className="text-2xl font-semibold tracking-wide">CITYCASE</p>
+            <p className="text-xs uppercase tracking-[0.18em] text-archive-500">Archivio investigativo</p>
           </div>
         </div>
-        <div>
-          <p className="text-sm text-archive-500">Caso {dossier.caseNumber}</p>
-          <h2 className="text-xl font-semibold">{dossier.title}</h2>
-        </div>
-        <div className="self-center">
-          <div className="flex items-center justify-between text-xs uppercase tracking-[0.16em] text-archive-500">
-            <span>Progresso</span>
-            <span>{dossier.progressPercent}%</span>
+        <div className="flex items-center gap-8">
+          <div className="border-l border-brass/30 pl-6">
+            <p className="text-xs uppercase tracking-[0.22em] text-brass">Fascicolo {dossier.caseNumber}</p>
+            <h2 className="text-xl font-semibold uppercase tracking-[0.05em]">{dossier.title}</h2>
           </div>
-          <div className="mt-2 h-2 bg-black/40">
-            <div className="h-full bg-brass" style={{ width: `${dossier.progressPercent}%` }} />
+          <p className="hidden text-sm uppercase tracking-[0.24em] text-ink/70 md:block">
+            {dossier.city.name}, {dossier.year}
+          </p>
+        </div>
+        <div className="flex items-center justify-end gap-5">
+          <NavIcon icon={<Home size={18} />} label="Scrivania" />
+          <NavIcon icon={<ClipboardList size={18} />} label="Diario" />
+          <NavIcon icon={<Box size={18} />} label="Atlante" />
+          <div className="flex items-center gap-2 border-l border-white/10 pl-4">
+            <div className="grid h-9 w-9 place-items-center border border-brass/40 bg-black/30 text-brass">
+              <UserRound size={17} />
+            </div>
+            <div>
+              <p className="text-sm">{dossier.user?.nickname ?? "Analista"}</p>
+              <p className="text-xs text-archive-500">Livello 1</p>
+            </div>
           </div>
         </div>
       </header>
 
-      <div className="grid min-h-[760px] grid-rows-[auto_1fr_auto] lg:grid-cols-[18rem_minmax(0,1fr)_22rem] lg:grid-rows-[1fr_auto]">
-        <aside className="thin-scrollbar max-h-[760px] overflow-auto border-b border-white/10 bg-archive-900/80 p-4 lg:border-b-0 lg:border-r">
-          <PanelTitle title="Domande investigative" />
+      <div className="grid min-h-[780px] grid-rows-[auto_1fr_auto] lg:grid-cols-[18rem_minmax(0,1fr)_24rem] lg:grid-rows-[1fr_auto]">
+        <aside className="thin-scrollbar max-h-[780px] overflow-auto border-b border-brass/20 bg-black/25 p-5 lg:border-b-0 lg:border-r">
+          <PanelTitle title="Progresso del caso" />
+          <div className="grid h-32 w-32 place-items-center rounded-full border-[9px] border-archive-700 bg-black/30 text-3xl font-semibold text-brass">
+            {dossier.progressPercent}%
+          </div>
+
+          <PanelTitle title="Domande principali" className="mt-8" />
           <div className="grid gap-3">
             {dossier.questions.map((question) => (
-              <div key={question.id} className="border border-white/10 bg-black/20 p-3">
+              <div key={question.id} className="border border-white/10 bg-black/30 p-3">
                 <p className="text-sm font-medium">{question.text}</p>
                 <p className="mt-1 text-xs leading-5 text-archive-500">{question.context}</p>
+                <div className="mt-3 h-1 bg-white/10">
+                  <div className="h-full bg-brass" style={{ width: `${18 + question.order * 14}%` }} />
+                </div>
               </div>
             ))}
           </div>
@@ -153,12 +172,12 @@ export function InvestigationWorkspace({ dossier }: { dossier: WorkspaceCase }) 
 
         <div className="grid min-h-[620px] grid-rows-[1fr_auto]">
           <InvestigationMap dossier={dossier} places={places} selected={selected} onSelect={openNode} />
-          <div className="border-t border-white/10 bg-archive-900 p-4">
-            <PanelTitle title="Timeline" compact />
-            <div className="flex gap-3 overflow-x-auto pb-1">
-              {timeline.map((node) => (
-                <button key={node.id} onClick={() => openNode(node.id)} className="min-w-64 border border-white/10 bg-black/20 p-3 text-left">
-                  <p className="text-xs uppercase tracking-[0.18em] text-brass">{node.dateLabel ?? "Evento"}</p>
+          <div className="border-t border-brass/20 bg-black/35 p-4">
+            <PanelTitle title="Perché l'esperienza è viva" compact />
+            <div className="grid gap-3 md:grid-cols-3">
+              {timeline.map((node, index) => (
+                <button key={node.id} onClick={() => openNode(node.id)} className="border border-white/10 bg-black/25 p-3 text-left">
+                  <p className="text-xs uppercase tracking-[0.18em] text-brass">{index + 1}. {node.dateLabel ?? "Evento"}</p>
                   <p className="mt-1 font-medium">{node.title}</p>
                   <p className="mt-1 line-clamp-2 text-xs leading-5 text-archive-500">{node.description}</p>
                 </button>
@@ -167,58 +186,59 @@ export function InvestigationWorkspace({ dossier }: { dossier: WorkspaceCase }) 
           </div>
         </div>
 
-        <aside className="thin-scrollbar max-h-[760px] overflow-auto border-t border-white/10 bg-archive-900/80 p-4 lg:border-l lg:border-t-0">
+        <aside className="thin-scrollbar max-h-[780px] overflow-auto border-t border-brass/20 bg-black/25 lg:border-l lg:border-t-0">
           {selected ? (
             <>
-              <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start justify-between gap-3 p-5">
                 <div>
                   <p className="text-xs uppercase tracking-[0.2em] text-ledger">{selected.type}</p>
-                  <h3 className="mt-1 text-2xl font-semibold">{selected.title}</h3>
+                  <h3 className="mt-1 text-2xl font-semibold uppercase tracking-[0.06em] text-brass">{selected.title}</h3>
                   <p className="mt-1 text-sm text-archive-500">{selected.subtitle}</p>
                 </div>
-                <span className="border border-brass/40 px-2 py-1 text-xs text-brass">{selected.reliability}</span>
+                <X size={18} className="text-ink/70" />
               </div>
-              <p className="mt-5 text-sm leading-6 text-archive-500">{selected.description}</p>
-              {selected.address ? <p className="mt-3 text-sm text-ledger">{selected.address}</p> : null}
-
-              <PanelTitle title="Documenti collegati" className="mt-6" />
-              <div className="grid gap-3">
-                {selected.documents.length ? (
-                  selected.documents.map((document) => (
-                    <details key={document.id} className="border border-white/10 bg-black/20 p-3">
-                      <summary className="cursor-pointer text-sm font-medium">{document.title}</summary>
-                      <p className="mt-2 text-xs uppercase tracking-[0.16em] text-brass">{document.kind}</p>
-                      <p className="mt-2 text-sm leading-6 text-archive-500">{document.content}</p>
-                    </details>
-                  ))
-                ) : (
-                  <p className="text-sm text-archive-500">Nessun documento collegato a questo nodo.</p>
-                )}
-              </div>
-
-              <PanelTitle title="Connessioni ufficiali" className="mt-6" />
-              <ConnectionList
-                items={dossier.connections.filter((connection) => connection.sourceId === selected.id || connection.targetId === selected.id)}
-              />
-
               {selected.type === "place" && selected.latitude && selected.longitude ? (
-                <>
-                  <PanelTitle title="Street View" className="mt-6" />
-                  <StreetViewPanel node={selected} />
-                </>
-              ) : null}
+                <StreetViewPanel node={selected} compactImage />
+              ) : (
+                <div className="h-44 border-y border-white/10 bg-[url('/brand/citycase-brand-board.png')] bg-cover bg-center opacity-70" />
+              )}
+              <div className="p-5">
+                <span className="border border-brass/40 px-2 py-1 text-xs text-brass">{selected.reliability}</span>
+                <p className="mt-5 text-sm leading-6 text-archive-500">{selected.description}</p>
+                {selected.address ? <p className="mt-3 text-sm text-ledger">{selected.address}</p> : null}
 
-              <PanelTitle title="Note personali" className="mt-6" />
-              <textarea
-                value={notes[selected.id] ?? ""}
-                onChange={(event) => setNotes((current) => ({ ...current, [selected.id]: event.target.value }))}
-                className="h-28 w-full resize-none border border-white/10 bg-black/30 p-3 text-sm outline-none focus:border-brass/60"
-                placeholder="Aggiungi una nota investigativa..."
-              />
-              <button onClick={saveNote} className="mt-2 flex w-full items-center justify-center gap-2 border border-brass/50 bg-brass/10 px-3 py-2 text-sm text-brass">
-                <Save size={15} />
-                Salva nota
-              </button>
+                <PanelTitle title="Documenti collegati" className="mt-6" />
+                <div className="grid gap-3">
+                  {selected.documents.length ? (
+                    selected.documents.map((document) => (
+                      <details key={document.id} className="border border-white/10 bg-black/20 p-3">
+                        <summary className="cursor-pointer text-sm font-medium">{document.title}</summary>
+                        <p className="mt-2 text-xs uppercase tracking-[0.16em] text-brass">{document.kind}</p>
+                        <p className="mt-2 text-sm leading-6 text-archive-500">{document.content}</p>
+                      </details>
+                    ))
+                  ) : (
+                    <p className="text-sm text-archive-500">Nessun documento collegato a questo nodo.</p>
+                  )}
+                </div>
+
+                <PanelTitle title="Connessioni ufficiali" className="mt-6" />
+                <ConnectionList
+                  items={dossier.connections.filter((connection) => connection.sourceId === selected.id || connection.targetId === selected.id)}
+                />
+
+                <PanelTitle title="Note" className="mt-6" />
+                <textarea
+                  value={notes[selected.id] ?? ""}
+                  onChange={(event) => setNotes((current) => ({ ...current, [selected.id]: event.target.value }))}
+                  className="h-28 w-full resize-none border border-white/10 bg-black/30 p-3 text-sm outline-none focus:border-brass/60"
+                  placeholder="Annota le tue osservazioni..."
+                />
+                <button onClick={saveNote} className="mt-3 flex w-full items-center justify-center gap-2 bg-brass px-3 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-black">
+                  <Save size={15} />
+                  Salva nota
+                </button>
+              </div>
             </>
           ) : null}
         </aside>
@@ -283,7 +303,9 @@ export function InvestigationWorkspace({ dossier }: { dossier: WorkspaceCase }) 
 function InvestigationMap({ dossier, places, selected, onSelect }: { dossier: WorkspaceCase; places: NodeItem[]; selected?: NodeItem; onSelect: (nodeId: string) => void }) {
   const mapRef = useRef<HTMLDivElement | null>(null);
   const [googleReady, setGoogleReady] = useState(false);
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+  const [mapError, setMapError] = useState("");
+  const rawApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY?.trim();
+  const apiKey = rawApiKey && rawApiKey !== "none" && rawApiKey.length > 20 ? rawApiKey : "";
 
   useEffect(() => {
     if (!apiKey) return;
@@ -295,6 +317,7 @@ function InvestigationMap({ dossier, places, selected, onSelect }: { dossier: Wo
     const script = document.createElement("script");
     script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&callback=initCityCaseMap`;
     script.async = true;
+    script.onerror = () => setMapError("Google Maps non ha caricato la libreria. Controlla key, billing e domini autorizzati.");
     document.head.appendChild(script);
   }, [apiKey]);
 
@@ -308,13 +331,19 @@ function InvestigationMap({ dossier, places, selected, onSelect }: { dossier: Wo
       streetViewControl: true,
       styles: [{ elementType: "geometry", stylers: [{ color: "#151b23" }] }, { elementType: "labels.text.fill", stylers: [{ color: "#d9ded8" }] }]
     });
-    places.forEach((place) => {
+    const info = new window.google.maps.InfoWindow();
+    places.forEach((place, index) => {
       const marker = new window.google.maps.Marker({
         position: { lat: place.latitude, lng: place.longitude },
         map,
-        title: place.title
+        title: place.title,
+        label: `${index + 1}`
       });
-      marker.addListener("click", () => onSelect(place.id));
+      marker.addListener("click", () => {
+        info.setContent(`<strong>${place.title}</strong><br/><span>${place.subtitle ?? "Luogo del fascicolo"}</span>`);
+        info.open({ map, anchor: marker });
+        onSelect(place.id);
+      });
     });
   }, [dossier.city.latitude, dossier.city.longitude, googleReady, onSelect, places]);
 
@@ -324,30 +353,35 @@ function InvestigationMap({ dossier, places, selected, onSelect }: { dossier: Wo
     return { minLat: Math.min(...lats), maxLat: Math.max(...lats), minLng: Math.min(...lngs), maxLng: Math.max(...lngs) };
   }, [dossier.city.latitude, dossier.city.longitude, places]);
 
-  if (apiKey) {
-    return <div ref={mapRef} className="min-h-[520px] w-full bg-archive-850" />;
+  if (apiKey && !mapError) {
+    return <div ref={mapRef} className="min-h-[620px] w-full bg-archive-850" />;
   }
 
   return (
-    <div className="map-grid relative min-h-[520px] overflow-hidden bg-archive-850">
-      <div className="absolute left-4 top-4 z-10 border border-white/10 bg-archive-900/90 p-3">
-        <p className="text-xs uppercase tracking-[0.2em] text-brass">Mappa Forlì</p>
-        <p className="mt-1 text-xs text-archive-500">Aggiungi una Google Maps API key per la mappa reale.</p>
+    <div className="map-grid relative min-h-[620px] overflow-hidden bg-[url('/brand/citycase-brand-board.png')] bg-cover bg-center">
+      <div className="absolute inset-0 bg-black/70" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(200,162,74,0.16),transparent_34rem)]" />
+      <div className="absolute left-6 top-6 z-10 border border-white/15 bg-black/60 p-4 shadow-panel">
+        <p className="text-xs uppercase tracking-[0.2em] text-brass">Atlante di Forlì</p>
+        <p className="mt-2 max-w-xs text-xs leading-5 text-archive-500">
+          {mapError || "Google Maps non è attivo: inserisci una vera NEXT_PUBLIC_GOOGLE_MAPS_API_KEY e redeploya."}
+        </p>
       </div>
-      {places.map((place) => {
+      {places.map((place, index) => {
         const x = normalize(place.longitude ?? dossier.city.longitude, bounds.minLng, bounds.maxLng);
         const y = normalize(place.latitude ?? dossier.city.latitude, bounds.minLat, bounds.maxLat);
         return (
           <button
             key={place.id}
             onClick={() => onSelect(place.id)}
-            className={`absolute max-w-44 -translate-x-1/2 -translate-y-1/2 border px-3 py-2 text-left text-xs shadow-panel ${
-              selected?.id === place.id ? "border-brass bg-brass text-black" : "border-white/15 bg-archive-900 text-ink"
+            className={`absolute z-10 max-w-48 -translate-x-1/2 -translate-y-1/2 border px-4 py-3 text-left text-xs shadow-panel ${
+              selected?.id === place.id ? "border-brass bg-brass text-black" : "border-white/15 bg-black/75 text-ink"
             }`}
             style={{ left: `${10 + x * 80}%`, top: `${90 - y * 80}%` }}
           >
-            <MapPinned size={14} className="mb-1" />
-            {place.title}
+            <span className="mb-2 grid h-8 w-8 place-items-center rounded-full border border-current text-sm font-semibold">{index + 1}</span>
+            <span className="font-semibold uppercase tracking-[0.08em]">{place.title}</span>
+            <span className="mt-1 block text-[11px] opacity-75">{place.documents.length} indizi trovati</span>
           </button>
         );
       })}
@@ -355,9 +389,11 @@ function InvestigationMap({ dossier, places, selected, onSelect }: { dossier: Wo
   );
 }
 
-function StreetViewPanel({ node }: { node: NodeItem }) {
+function StreetViewPanel({ node, compactImage = false }: { node: NodeItem; compactImage?: boolean }) {
   const ref = useRef<HTMLDivElement | null>(null);
   const [ready, setReady] = useState(false);
+  const rawApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY?.trim();
+  const apiKey = rawApiKey && rawApiKey !== "none" && rawApiKey.length > 20 ? rawApiKey : "";
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -376,16 +412,16 @@ function StreetViewPanel({ node }: { node: NodeItem }) {
     return () => window.clearInterval(timer);
   }, [node.latitude, node.longitude]);
 
-  if (!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) {
+  if (!apiKey) {
     return (
-      <div className="border border-white/10 bg-black/20 p-3 text-sm text-archive-500">
-        Street View richiede `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`.
+      <div className={`${compactImage ? "h-44 border-y" : "border"} border-white/10 bg-black/30 p-3 text-sm text-archive-500`}>
+        Street View richiede una vera `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` e un redeploy.
       </div>
     );
   }
 
   return (
-    <div className="relative h-52 overflow-hidden border border-white/10 bg-black/20">
+    <div className={`relative ${compactImage ? "h-48 border-y" : "h-52 border"} overflow-hidden border-white/10 bg-black/20`}>
       {!ready ? (
         <div className="absolute inset-0 grid place-items-center text-sm text-archive-500">
           <span className="flex items-center gap-2">
@@ -415,6 +451,15 @@ function ConnectionList({ items }: { items: Array<{ id: string; sourceTitle: str
           <p className="mt-1 text-xs text-archive-500">{item.description}</p>
         </div>
       ))}
+    </div>
+  );
+}
+
+function NavIcon({ icon, label }: { icon: React.ReactNode; label: string }) {
+  return (
+    <div className="hidden min-w-16 text-center text-xs uppercase tracking-[0.12em] text-ink/80 md:block">
+      <div className="mb-1 grid place-items-center text-ink">{icon}</div>
+      {label}
     </div>
   );
 }
