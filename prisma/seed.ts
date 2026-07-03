@@ -20,6 +20,8 @@ async function main() {
   const demoUser = await prisma.user.create({
     data: {
       nickname: "archivista",
+      email: "archivista@citycase.it",
+      displayName: "Archivista",
       passwordHash: hashPassword("citycase1817")
     }
   });

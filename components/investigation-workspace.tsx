@@ -26,6 +26,7 @@ const nodeIcons: Record<string, React.ReactNode> = {
 };
 
 export function InvestigationWorkspace({ dossier }: { dossier: WorkspaceCase }) {
+  const displayName = dossier.user?.displayName || dossier.user?.email?.split("@")[0] || dossier.user?.nickname || "Analista";
   const [selectedId, setSelectedId] = useState(dossier.nodes[0]?.id ?? "");
   const [opened, setOpened] = useState<string[]>(dossier.nodes.slice(0, 3).map((node) => node.id));
   const [notes, setNotes] = useState<Record<string, string>>(() => Object.fromEntries(dossier.nodes.map((node) => [node.id, node.note])));
@@ -126,7 +127,7 @@ export function InvestigationWorkspace({ dossier }: { dossier: WorkspaceCase }) 
               <UserRound size={17} />
             </div>
             <div>
-              <p className="text-sm">{dossier.user?.nickname ?? "Analista"}</p>
+              <p className="text-sm">{displayName}</p>
               <p className="text-xs text-archive-500">Livello 1</p>
             </div>
           </div>

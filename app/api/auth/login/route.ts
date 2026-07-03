@@ -1,21 +1,28 @@
 import { NextResponse } from "next/server";
-import { createSession, normalizeNickname, verifyPassword } from "@/lib/auth";
+import { createSession, normalizeEmail, normalizeNickname, verifyPassword } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 export async function POST(request: Request) {
   const body = await request.json();
-  const nickname = normalizeNickname(String(body.nickname ?? ""));
+  const identifier = String(body.email ?? body.identifier ?? body.nickname ?? "");
+  const email = normalizeEmail(identifier);
+  const nickname = normalizeNickname(identifier);
   const password = String(body.password ?? "");
 
-  if (!nickname || !password) {
-    return NextResponse.json({ error: "Nickname e password richiesti" }, { status: 400 });
+  if (!identifier.trim() || !password) {
+    return NextResponse.json({ error: "E-mail e password richieste." }, { status: 400 });
   }
 
-  const user = await prisma.user.findUnique({ where: { nickname } });
+  const user = await prisma.user.findFirst({
+    where: {
+      OR: [{ email }, { nickname }]
+    }
+  });
+
   if (!user || !verifyPassword(password, user.passwordHash)) {
-    return NextResponse.json({ error: "Credenziali non valide" }, { status: 401 });
+    return NextResponse.json({ error: "E-mail o password non corretti." }, { status: 401 });
   }
 
   await createSession(user.id);
-  return NextResponse.json({ ok: true, user: { id: user.id, nickname: user.nickname } });
+  return NextResponse.json({ ok: true, user: { id: user.id, email: user.email, nickname: user.nickname, displayName: user.displayName } });
 }

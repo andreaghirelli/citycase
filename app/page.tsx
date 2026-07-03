@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Compass, FileText, MapPinned, ScrollText } from "lucide-react";
 import { getCases } from "@/lib/case-data";
-import { getCurrentUser } from "@/lib/auth";
+import { displayNameForUser, getCurrentUser } from "@/lib/auth";
 import { LoginPanel } from "@/components/login-panel";
 import { LogoutButton } from "@/components/logout-button";
 
@@ -14,6 +14,7 @@ export default async function DashboardPage() {
   }
 
   const cases = await getCases();
+  const displayName = displayNameForUser(user);
 
   return (
     <main className="min-h-screen bg-archive-950 text-ink">
@@ -37,7 +38,7 @@ export default async function DashboardPage() {
               <Compass size={20} />
             </div>
             <div className="min-w-0">
-              <p className="truncate text-sm font-medium">{user.nickname}</p>
+              <p className="truncate text-sm font-medium">{displayName}</p>
               <p className="text-xs text-archive-500">Analista</p>
             </div>
             <LogoutButton />
@@ -70,7 +71,7 @@ export default async function DashboardPage() {
             <div className="relative grid min-h-[34rem] content-between p-6">
               <div className="flex items-start justify-between gap-4">
                 <div className="border border-white/15 bg-black/55 p-5">
-                  <p className="text-xs uppercase tracking-[0.22em] text-ink/75">Benvenuto, {user.nickname}</p>
+                  <p className="text-xs uppercase tracking-[0.22em] text-ink/75">Benvenuto, {displayName}</p>
                   <p className="mt-2 max-w-xs text-sm leading-6 text-ink/80">Esplora i luoghi, consulta i documenti e ricostruisci la verità.</p>
                   <p className="mt-3 text-right font-serif italic text-brass">- L'Archivista</p>
                 </div>
@@ -104,7 +105,7 @@ export default async function DashboardPage() {
           <div className="grid gap-4 border-t border-brass/20 p-5 md:grid-cols-3">
             <Feature icon={<MapPinned size={18} />} title="La città è il tabellone" body="Una mappa viva e interrogabile. Ogni luogo è una porta sulla storia." />
             <Feature icon={<FileText size={18} />} title="Storia vera, emozione vera" body="Documenti, persone e tracce restano nel tuo archivio personale." />
-            <Feature icon={<ScrollText size={18} />} title="Ogni scoperta conta" body="Note, connessioni e progresso appartengono al tuo nickname." />
+            <Feature icon={<ScrollText size={18} />} title="Ogni scoperta conta" body="Note, connessioni e progresso appartengono al tuo profilo." />
           </div>
         </section>
 

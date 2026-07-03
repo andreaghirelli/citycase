@@ -33,13 +33,25 @@ export function normalizeNickname(nickname: string) {
   return nickname.trim().toLowerCase().replace(/[^a-z0-9._-]/g, "").slice(0, 24);
 }
 
+export function normalizeEmail(email: string) {
+  return email.trim().toLowerCase();
+}
+
+export function isValidEmail(email: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+export function displayNameForUser(user: { displayName?: string | null; email?: string | null; nickname: string }) {
+  return user.displayName || user.email?.split("@")[0] || user.nickname;
+}
+
 export async function createSession(userId: string) {
   const cookieStore = await cookies();
   const value = `${userId}.${sign(userId)}`;
   cookieStore.set(SESSION_COOKIE, value, {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: process.env.AUTH_COOKIE_SECURE === "true",
     path: "/",
     maxAge: SESSION_MAX_AGE
   });
@@ -61,6 +73,6 @@ export async function getCurrentUser() {
 
   return prisma.user.findUnique({
     where: { id: userId },
-    select: { id: true, nickname: true, createdAt: true }
+    select: { id: true, nickname: true, email: true, displayName: true, createdAt: true }
   });
 }
