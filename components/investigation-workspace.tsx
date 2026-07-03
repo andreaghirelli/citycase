@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { BookOpen, Crosshair, FileText, MapPinned, Network, Plus, Radar, Save, Search, UserRound } from "lucide-react";
+import { BookOpen, Crosshair, FileText, MapPinned, Plus, Radar, Save, Search, UserRound } from "lucide-react";
 import type { WorkspaceCase } from "@/lib/case-data";
 
 type NodeItem = WorkspaceCase["nodes"][number];
@@ -97,9 +97,11 @@ export function InvestigationWorkspace({ dossier }: { dossier: WorkspaceCase }) 
     <section className="mx-auto max-w-[1800px] border-t border-white/10 bg-archive-950">
       <header className="grid gap-3 border-b border-white/10 bg-archive-900 px-4 py-3 lg:grid-cols-[18rem_1fr_22rem]">
         <div className="flex items-center gap-3">
-          <div className="grid h-10 w-10 place-items-center border border-brass/50 text-brass">
-            <Network size={21} />
-          </div>
+          <img
+            src="/brand/citycase-logo-symbol.png"
+            alt="CityCase Nodo Intrecciato"
+            className="h-11 w-11 border border-brass/40 bg-archive-850 object-cover"
+          />
           <div>
             <p className="text-xs uppercase tracking-[0.24em] text-ledger">CITYCASE</p>
             <p className="text-sm text-archive-500">Nodo Intrecciato</p>

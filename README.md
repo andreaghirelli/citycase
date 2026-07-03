@@ -4,6 +4,8 @@ CityCase è un MVP web investigativo per esplorare casi storici tramite mappa, n
 
 Il caso demo `001 — Il Delitto di Domenico Manzoni` non è hardcoded nel frontend: viene caricato dal database tramite seed Prisma.
 
+L'identità ufficiale usa il simbolo `Nodo Intrecciato`, disponibile in `public/brand`.
+
 ## Stack
 
 - Next.js

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Archive, MapPinned, Network, ScrollText } from "lucide-react";
+import { Archive, MapPinned, ScrollText } from "lucide-react";
 import { getCases } from "@/lib/case-data";
 
 export const dynamic = "force-dynamic";
@@ -12,9 +12,11 @@ export default async function DashboardPage() {
       <section className="mx-auto flex max-w-7xl flex-col gap-8">
         <header className="flex items-center justify-between border-b border-white/10 pb-6">
           <div className="flex items-center gap-3">
-            <div className="grid h-11 w-11 place-items-center border border-brass/50 bg-archive-850 text-brass">
-              <Network size={22} />
-            </div>
+            <img
+              src="/brand/citycase-logo-symbol.png"
+              alt="CityCase Nodo Intrecciato"
+              className="h-12 w-12 border border-brass/40 bg-archive-850 object-cover"
+            />
             <div>
               <p className="text-xs uppercase tracking-[0.28em] text-ledger">Nodo Intrecciato</p>
               <h1 className="text-2xl font-semibold">CITYCASE</h1>
