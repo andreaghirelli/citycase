@@ -17,21 +17,26 @@ export function LoginPanel() {
     setLoading(true);
     setError("");
 
-    const response = await fetch(`/api/auth/${mode}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nickname, password })
-    });
+    try {
+      const response = await fetch(`/api/auth/${mode}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nickname, password })
+      });
 
-    const payload = await response.json();
-    setLoading(false);
+      const payload = await response.json().catch(() => ({}));
 
-    if (!response.ok) {
-      setError(payload.error ?? "Accesso non riuscito");
-      return;
+      if (!response.ok) {
+        setError(payload.error ?? "Accesso non riuscito. Verifica che il database sia aggiornato.");
+        return;
+      }
+
+      window.location.reload();
+    } catch {
+      setError("Il server non risponde. Controlla i log di Coolify e lo stato del database.");
+    } finally {
+      setLoading(false);
     }
-
-    window.location.reload();
   }
 
   return (
