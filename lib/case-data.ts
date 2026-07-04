@@ -32,6 +32,14 @@ export async function getCases() {
       documents: item.documents.length,
       questions: item.questions.length
     },
+    questions: item.questions
+      .sort((a, b) => a.order - b.order)
+      .map((question) => ({
+        id: question.id,
+        text: question.text,
+        context: question.context,
+        order: question.order
+      })),
     progressPercent: item.userProgress[0]?.progressPercent ?? 0
   }));
 }

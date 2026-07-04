@@ -57,9 +57,9 @@ export default async function DashboardPage() {
           <div className="mt-8 border-t border-white/10 pt-6">
             <p className="text-xs uppercase tracking-[0.24em] text-brass">Domande principali</p>
             <div className="mt-4 grid gap-4 text-sm text-ink/80">
-              <Question text="Chi era davvero Domenico Manzoni?" progress={38} />
-              <Question text="Cosa accadde in Via Saffi?" progress={28} />
-              <Question text="Chi aveva interesse a eliminarlo?" progress={12} />
+              {cases[0]?.questions.map((question, index) => (
+                <Question key={question.id} text={question.text} progress={Math.max(12, cases[0].progressPercent - index * 8)} />
+              ))}
             </div>
           </div>
         </aside>
@@ -126,7 +126,7 @@ export default async function DashboardPage() {
                   <Action text="Verifica dal vivo" />
                 </div>
                 <Link href={`/cases/${cases[0].id}`} className="mt-5 block bg-brass px-4 py-3 text-center text-sm font-semibold uppercase tracking-[0.18em] text-black">
-                  Esplora questo luogo
+                  Entra nel fascicolo
                 </Link>
               </div>
             </div>
