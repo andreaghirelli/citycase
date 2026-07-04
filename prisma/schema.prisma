@@ -31,6 +31,12 @@ enum ProgressStatus {
   completed
 }
 
+enum MandateKind {
+  place_answer
+  connection
+  deduction
+}
+
 model City {
   id        String   @id @default(cuid())
   name      String
@@ -58,23 +64,24 @@ model User {
 }
 
 model Case {
-  id          String           @id @default(cuid())
-  caseNumber  String           @unique
-  title       String
-  subtitle    String?
-  year        Int
-  summary     String
-  coverNote   String?
-  status      String           @default("open")
-  cityId      String
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
+  id         String   @id @default(cuid())
+  caseNumber String   @unique
+  title      String
+  subtitle   String?
+  year       Int
+  summary    String
+  coverNote  String?
+  status     String   @default("open")
+  cityId     String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
-  city            City             @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  city            City                   @relation(fields: [cityId], references: [id], onDelete: Cascade)
   nodes           Node[]
   connections     NodeConnection[]
   documents       Document[]
   questions       Question[]
+  mandates        InvestigativeMandate[]
   liveUnlocks     LiveUnlock[]
   userProgress    UserProgress[]
   userConnections UserConnection[]
@@ -101,17 +108,51 @@ model Node {
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
 
-  case                    Case             @relation(fields: [caseId], references: [id], onDelete: Cascade)
-  documents               Document[]
-  sourceConnections       NodeConnection[] @relation("SourceNode")
-  targetConnections       NodeConnection[] @relation("TargetNode")
-  notes                   UserNote[]
-  sourceUserConnections   UserConnection[] @relation("UserSourceNode")
-  targetUserConnections   UserConnection[] @relation("UserTargetNode")
-  liveUnlocks             LiveUnlock[]
+  case                  Case                   @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  documents             Document[]
+  sourceConnections     NodeConnection[]       @relation("SourceNode")
+  targetConnections     NodeConnection[]       @relation("TargetNode")
+  notes                 UserNote[]
+  sourceUserConnections UserConnection[]       @relation("UserSourceNode")
+  targetUserConnections UserConnection[]       @relation("UserTargetNode")
+  liveUnlocks           LiveUnlock[]
+  focusedMandates       InvestigativeMandate[] @relation("MandateFocusNode")
+  sourceMandates        InvestigativeMandate[] @relation("MandateSourceNode")
+  targetMandates        InvestigativeMandate[] @relation("MandateTargetNode")
 
   @@index([caseId, type])
   @@map("nodes")
+}
+
+model InvestigativeMandate {
+  id                String      @id @default(cuid())
+  caseId            String
+  order             Int         @default(0)
+  title             String
+  question          String
+  intro             String
+  objective         String
+  required          Json        @default("[]")
+  kind              MandateKind
+  focusNodeId       String?
+  sourceNodeId      String?
+  targetNodeId      String?
+  aliases           Json        @default("[]")
+  keywords          Json        @default("[]")
+  rewardDocumentIds Json        @default("[]")
+  rewardText        String
+  feedback          String
+  cliffhanger       String
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  case       Case  @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  focusNode  Node? @relation("MandateFocusNode", fields: [focusNodeId], references: [id], onDelete: SetNull)
+  sourceNode Node? @relation("MandateSourceNode", fields: [sourceNodeId], references: [id], onDelete: SetNull)
+  targetNode Node? @relation("MandateTargetNode", fields: [targetNodeId], references: [id], onDelete: SetNull)
+
+  @@index([caseId, order])
+  @@map("investigative_mandates")
 }
 
 model NodeConnection {
@@ -154,12 +195,12 @@ model Document {
 }
 
 model Question {
-  id          String   @id @default(cuid())
-  caseId      String
-  text        String
-  context     String?
-  order       Int      @default(0)
-  createdAt   DateTime @default(now())
+  id        String   @id @default(cuid())
+  caseId    String
+  text      String
+  context   String?
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
 
   case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
 
@@ -234,14 +275,14 @@ model UserConnection {
 }
 
 model UserTheory {
-  id        String   @id @default(cuid())
-  userId    String
-  caseId    String
-  title     String
-  body      String
-  confidence Int     @default(50)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id         String   @id @default(cuid())
+  userId     String
+  caseId     String
+  title      String
+  body       String
+  confidence Int      @default(50)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
 

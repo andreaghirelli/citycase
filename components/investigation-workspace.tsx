@@ -26,6 +26,7 @@ type CaseConnection = WorkspaceCase["connections"][number];
 type UserConnection = WorkspaceCase["userConnections"][number];
 type WorkspaceView = "desk" | "diary" | "board" | "atlas";
 type LiveHit = { id: string; nodeId: string; title: string; description: string; unlockedContent: string; distance: number };
+type Mandate = WorkspaceCase["mandates"][number];
 
 declare global {
   interface Window {
@@ -51,6 +52,16 @@ const viewLabels: Record<WorkspaceView, string> = {
   atlas: "Atlante"
 };
 
+function normalizeAnswer(value: string) {
+  return value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 export function InvestigationWorkspace({ dossier, mapsApiKey = "" }: { dossier: WorkspaceCase; mapsApiKey?: string }) {
   const displayName = dossier.user?.displayName || dossier.user?.email?.split("@")[0] || dossier.user?.nickname || "Analista";
   const firstPlace = dossier.nodes.find((node) => node.type === "place") ?? dossier.nodes[0];
@@ -67,8 +78,17 @@ export function InvestigationWorkspace({ dossier, mapsApiKey = "" }: { dossier: 
   const [archivistMessage, setArchivistMessage] = useState("Cominciamo dal luogo del delitto.");
   const [view, setView] = useState<WorkspaceView>("desk");
   const [query, setQuery] = useState("");
-  const [activeQuestionId, setActiveQuestionId] = useState(dossier.questions[0]?.id ?? "");
+  const [completedMandates, setCompletedMandates] = useState<string[]>([]);
+  const [unlockedDocumentIds, setUnlockedDocumentIds] = useState<string[]>([]);
+  const [validationInput, setValidationInput] = useState("");
+  const [validationMessage, setValidationMessage] = useState("");
+  const [mandateStateLoaded, setMandateStateLoaded] = useState(false);
 
+  const mandates = dossier.mandates;
+  const storageKey = `citycase-mandates-${dossier.id}-${dossier.user?.id ?? "anonymous"}`;
+  const activeMandate = mandates.find((mandate) => !completedMandates.includes(mandate.id)) ?? mandates[mandates.length - 1];
+  const completedAllMandates = mandates.length > 0 && completedMandates.length >= mandates.length;
+  const progressPercent = Math.max(dossier.progressPercent, mandates.length ? Math.round((completedMandates.length / mandates.length) * 100) : dossier.progressPercent);
   const selected = dossier.nodes.find((node) => node.id === selectedId) ?? firstPlace;
   const places = dossier.nodes.filter((node) => node.type === "place" && node.latitude && node.longitude);
   const discovered = dossier.nodes.filter((node) => node.discovered);
@@ -104,12 +124,36 @@ export function InvestigationWorkspace({ dossier, mapsApiKey = "" }: { dossier: 
     }
   }, [dossier.id]);
 
+  useEffect(() => {
+    const raw = window.localStorage.getItem(storageKey);
+    if (!raw) {
+      setMandateStateLoaded(true);
+      return;
+    }
+    try {
+      const saved = JSON.parse(raw) as { completedMandates?: string[]; unlockedDocumentIds?: string[] };
+      setCompletedMandates(saved.completedMandates ?? []);
+      setUnlockedDocumentIds(saved.unlockedDocumentIds ?? []);
+    } catch {
+      window.localStorage.removeItem(storageKey);
+    } finally {
+      setMandateStateLoaded(true);
+    }
+  }, [storageKey]);
+
+  useEffect(() => {
+    if (!mandateStateLoaded) return;
+    window.localStorage.setItem(storageKey, JSON.stringify({ completedMandates, unlockedDocumentIds }));
+  }, [completedMandates, mandateStateLoaded, storageKey, unlockedDocumentIds]);
+
   function openNode(nodeId: string, source: "map" | "list" | "timeline" | "connection" | "document" | "search" | "question" = "map") {
     const node = dossier.nodes.find((item) => item.id === nodeId);
     if (!node) return;
     setSelectedId(nodeId);
     setOpened((current) => [nodeId, ...current.filter((id) => id !== nodeId)].slice(0, 8));
-    if (source === "timeline") setArchivistMessage("La sequenza cambia il peso degli indizi.");
+    if (activeMandate?.focusNodeId === nodeId && !completedMandates.includes(activeMandate.id)) {
+      setArchivistMessage(`${activeMandate.title}: ${activeMandate.intro}`);
+    } else if (source === "timeline") setArchivistMessage("La sequenza cambia il peso degli indizi.");
     else if (source === "question") setArchivistMessage("Una domanda non si risolve: si restringe.");
     else if (source === "search") setArchivistMessage("Hai trovato una traccia. Ora cerca cosa la collega.");
     else setArchivistMessage("Ogni nodo vive solo nelle sue connessioni.");
@@ -124,6 +168,55 @@ export function InvestigationWorkspace({ dossier, mapsApiKey = "" }: { dossier: 
     if (firstPlace) openNode(firstPlace.id, "map");
     window.localStorage.setItem(`citycase-intro-${dossier.id}`, "done");
     setIntroVisible(false);
+  }
+
+  function completeMandate(mandate: Mandate) {
+    const nextUnlocked = Array.from(new Set([...unlockedDocumentIds, ...mandate.rewardDocumentIds]));
+    setUnlockedDocumentIds(nextUnlocked);
+    setCompletedMandates((current) => current.includes(mandate.id) ? current : [...current, mandate.id]);
+    setValidationInput("");
+    setValidationMessage(`${mandate.rewardText} ${mandate.cliffhanger}`);
+    setArchivistMessage(mandate.cliffhanger);
+    if (mandate.rewardDocumentIds[0]) {
+      const reward = dossier.documents.find((document) => document.id === mandate.rewardDocumentIds[0]);
+      const rewardNodeId = reward?.nodeId;
+      if (rewardNodeId) {
+        setSelectedId(rewardNodeId);
+        setOpened((current) => [rewardNodeId, ...current.filter((id) => id !== rewardNodeId)].slice(0, 8));
+      }
+    }
+  }
+
+  function validateMandate() {
+    if (!activeMandate || completedAllMandates) return;
+    const value = normalizeAnswer(validationInput);
+    let valid = false;
+
+    if (activeMandate.kind === "place-answer") {
+      valid = Boolean(value && activeMandate.aliases?.some((alias) => value.includes(normalizeAnswer(alias))));
+    }
+
+    if (activeMandate.kind === "connection" && activeMandate.sourceNodeId && activeMandate.targetNodeId) {
+      valid = connections.some((connection) => {
+        const forward = connection.sourceId === activeMandate.sourceNodeId && connection.targetId === activeMandate.targetNodeId;
+        const backward = connection.sourceId === activeMandate.targetNodeId && connection.targetId === activeMandate.sourceNodeId;
+        return forward || backward;
+      });
+    }
+
+    if (activeMandate.kind === "deduction") {
+      const selectedNote = selected ? notes[selected.id] ?? "" : "";
+      const text = normalizeAnswer(`${validationInput} ${selectedNote} ${Object.values(notes).join(" ")}`);
+      valid = (activeMandate.keywords ?? []).every((keyword) => text.includes(normalizeAnswer(keyword)));
+    }
+
+    if (!valid) {
+      setValidationMessage(activeMandate.feedback);
+      setArchivistMessage(activeMandate.feedback);
+      return;
+    }
+
+    completeMandate(activeMandate);
   }
 
   async function saveNote(nodeId = selected?.id ?? "") {
@@ -148,6 +241,11 @@ export function InvestigationWorkspace({ dossier, mapsApiKey = "" }: { dossier: 
       setConnections((current) => [payload.connection, ...current]);
       setView("board");
       setArchivistMessage("Una teoria nasce quando due tracce smettono di essere isolate.");
+      if (activeMandate?.kind === "connection" && activeMandate.sourceNodeId && activeMandate.targetNodeId) {
+        const forward = sourceId === activeMandate.sourceNodeId && targetId === activeMandate.targetNodeId;
+        const backward = sourceId === activeMandate.targetNodeId && targetId === activeMandate.sourceNodeId;
+        if (forward || backward) completeMandate(activeMandate);
+      }
     }
   }
 
@@ -190,19 +288,17 @@ export function InvestigationWorkspace({ dossier, mapsApiKey = "" }: { dossier: 
 
       <div className="grid min-h-[calc(100vh-5.75rem)] grid-cols-1 lg:grid-cols-[18rem_minmax(0,1fr)]">
         <LeftRail
-          dossier={dossier}
           nodes={discovered}
           selectedId={selected?.id}
           archivistMessage={archivistMessage}
-          activeQuestionId={activeQuestionId}
-          setActiveQuestionId={setActiveQuestionId}
+          activeMandate={activeMandate}
+          completedMandates={completedMandates}
+          progressPercent={progressPercent}
           onSelect={(nodeId) => openNode(nodeId, "list")}
-          onQuestionSelect={(questionId) => {
-            setActiveQuestionId(questionId);
-            setView("desk");
-            const question = dossier.questions.find((item) => item.id === questionId);
-            setArchivistMessage(question?.context || "Parti dai nodi con meno risposte.");
-            if (firstPlace) openNode(firstPlace.id, "question");
+          onMandateFocus={() => {
+            setView(activeMandate?.kind === "connection" ? "board" : activeMandate?.kind === "deduction" ? "diary" : "desk");
+            setArchivistMessage(activeMandate?.intro || "Parti dal mandato aperto.");
+            if (activeMandate?.focusNodeId) openNode(activeMandate.focusNodeId, "question");
           }}
         />
 
@@ -233,6 +329,13 @@ export function InvestigationWorkspace({ dossier, mapsApiKey = "" }: { dossier: 
             liveHits={liveHits}
             liveStatus={liveStatus}
             mapsApiKey={mapsApiKey}
+            activeMandate={activeMandate}
+            completedAllMandates={completedAllMandates}
+            unlockedDocumentIds={unlockedDocumentIds}
+            validationInput={validationInput}
+            setValidationInput={setValidationInput}
+            validationMessage={validationMessage}
+            onValidateMandate={validateMandate}
             onSaveNote={saveNote}
             onCreateConnection={createConnection}
             onCheckLive={checkLive}
@@ -317,23 +420,23 @@ function WorkspaceHeader({
 }
 
 function LeftRail({
-  dossier,
   nodes,
   selectedId,
   archivistMessage,
-  activeQuestionId,
-  setActiveQuestionId,
+  activeMandate,
+  completedMandates,
+  progressPercent,
   onSelect,
-  onQuestionSelect
+  onMandateFocus
 }: {
-  dossier: WorkspaceCase;
   nodes: NodeItem[];
   selectedId?: string;
   archivistMessage: string;
-  activeQuestionId: string;
-  setActiveQuestionId: (id: string) => void;
+  activeMandate?: Mandate;
+  completedMandates: string[];
+  progressPercent: number;
   onSelect: (nodeId: string) => void;
-  onQuestionSelect: (questionId: string) => void;
+  onMandateFocus: () => void;
 }) {
   const lastNodes = nodes.slice(0, 5);
 
@@ -342,13 +445,13 @@ function LeftRail({
       <PanelTitle title="Progressione" />
       <div className="flex items-center gap-4">
         <div className="relative grid h-24 w-24 shrink-0 place-items-center rounded-full border-[8px] border-archive-800 bg-black/30 lg:h-28 lg:w-28">
-          <div className="absolute inset-[-8px] rounded-full border-[8px] border-brass/70" style={{ clipPath: `inset(${100 - dossier.progressPercent}% 0 0 0)` }} />
-          <span className="text-2xl font-semibold text-brass">{dossier.progressPercent}%</span>
+          <div className="absolute inset-[-8px] rounded-full border-[8px] border-brass/70" style={{ clipPath: `inset(${100 - progressPercent}% 0 0 0)` }} />
+          <span className="text-2xl font-semibold text-brass">{progressPercent}%</span>
         </div>
         <div className="text-sm text-archive-500">
           <p className="text-ink">Indagine aperta</p>
           <p>{nodes.length} nodi scoperti</p>
-          <p>{dossier.documents.length} fonti disponibili</p>
+          <p>{completedMandates.length} mandati registrati</p>
         </div>
       </div>
 
@@ -357,33 +460,22 @@ function LeftRail({
         <p className="mt-2 text-sm leading-6 text-ink/80">{archivistMessage}</p>
       </div>
 
-      <PanelTitle title="Domande investigative" className="mt-6" />
-      <div className="grid gap-3">
-        {dossier.questions.map((question) => {
-          const active = activeQuestionId === question.id;
-          return (
-            <button
-              key={question.id}
-              onClick={() => {
-                setActiveQuestionId(question.id);
-                onQuestionSelect(question.id);
-              }}
-              className={`group border p-3 text-left transition ${active ? "border-brass/70 bg-brass/10" : "border-white/10 bg-white/[0.025] hover:border-brass/50"}`}
-            >
-              <div className="flex items-start gap-3">
-                <span className={`node-glyph ${active ? "active" : "discovered"} mt-0.5 grid h-7 w-7 shrink-0 place-items-center text-xs`}>?</span>
-                <div>
-                  <p className="text-sm font-medium leading-5">{question.text}</p>
-                  <p className="mt-1 line-clamp-2 text-xs leading-5 text-archive-500">{question.context}</p>
-                  <div className="mt-3 h-1 bg-white/10">
-                    <div className="h-full bg-brass transition-all group-hover:shadow-[0_0_18px_rgba(200,162,74,0.6)]" style={{ width: `${Math.min(88, 20 + question.order * 17 + dossier.progressPercent / 3)}%` }} />
-                  </div>
-                </div>
+      <PanelTitle title="Mandato investigativo" className="mt-6" />
+      {activeMandate ? (
+        <button onClick={onMandateFocus} className="group w-full border border-brass/60 bg-brass/10 p-4 text-left transition hover:bg-brass/15">
+          <div className="flex items-start gap-3">
+            <span className="node-glyph active mt-0.5 grid h-8 w-8 shrink-0 place-items-center text-xs">{activeMandate.order}</span>
+            <div>
+              <p className="text-xs uppercase tracking-[0.22em] text-brass">{activeMandate.title}</p>
+              <p className="mt-2 text-sm font-semibold leading-5">{activeMandate.question}</p>
+              <p className="mt-2 line-clamp-3 text-xs leading-5 text-archive-500">{activeMandate.objective}</p>
+              <div className="mt-3 h-1 bg-white/10">
+                <div className="h-full bg-brass transition-all group-hover:shadow-[0_0_18px_rgba(200,162,74,0.6)]" style={{ width: `${Math.max(22, activeMandate.order * 28)}%` }} />
               </div>
-            </button>
-          );
-        })}
-      </div>
+            </div>
+          </div>
+        </button>
+      ) : null}
 
       <PanelTitle title="Nodi scoperti" className="mt-6" />
       <div className="grid max-h-[24rem] gap-2 overflow-auto pr-1 lg:max-h-none">
@@ -578,6 +670,13 @@ function WorkspaceTools(props: {
   liveHits: LiveHit[];
   liveStatus: string;
   mapsApiKey: string;
+  activeMandate?: Mandate;
+  completedAllMandates: boolean;
+  unlockedDocumentIds: string[];
+  validationInput: string;
+  setValidationInput: (value: string) => void;
+  validationMessage: string;
+  onValidateMandate: () => void;
   onSaveNote: (nodeId?: string) => void;
   onCreateConnection: () => void;
   onCheckLive: () => void;
@@ -619,6 +718,13 @@ function DeskPanel({
   liveHits,
   liveStatus,
   mapsApiKey,
+  activeMandate,
+  completedAllMandates,
+  unlockedDocumentIds,
+  validationInput,
+  setValidationInput,
+  validationMessage,
+  onValidateMandate,
   onSaveNote,
   onCheckLive,
   onSelect
@@ -631,6 +737,13 @@ function DeskPanel({
   liveHits: LiveHit[];
   liveStatus: string;
   mapsApiKey: string;
+  activeMandate?: Mandate;
+  completedAllMandates: boolean;
+  unlockedDocumentIds: string[];
+  validationInput: string;
+  setValidationInput: (value: string) => void;
+  validationMessage: string;
+  onValidateMandate: () => void;
   onSaveNote: (nodeId?: string) => void;
   onCheckLive: () => void;
   onSelect: (nodeId: string) => void;
@@ -641,10 +754,18 @@ function DeskPanel({
       <div className="grid gap-5">
         <NodeBrief selected={selected} />
         {selected.type === "place" && selected.latitude && selected.longitude ? <StreetViewPanel node={selected} mapsApiKey={mapsApiKey} /> : null}
-        <DocumentShelf selected={selected} />
+        <DocumentShelf selected={selected} unlockedDocumentIds={unlockedDocumentIds} activeMandate={activeMandate} />
       </div>
       <div className="grid content-start gap-5">
-        <QuestionCue dossier={dossier} selected={selected} />
+        <MandateCard
+          mandate={activeMandate}
+          selected={selected}
+          completedAllMandates={completedAllMandates}
+          validationInput={validationInput}
+          setValidationInput={setValidationInput}
+          validationMessage={validationMessage}
+          onValidate={onValidateMandate}
+        />
         <ConnectionList selected={selected} connections={officialConnections} nodes={dossier.nodes} onSelect={onSelect} />
         <NotesCard selected={selected} notes={notes} setNotes={setNotes} onSaveNote={onSaveNote} />
         <LivePanel liveHits={liveHits} liveStatus={liveStatus} onCheckLive={onCheckLive} />
@@ -658,6 +779,12 @@ function DiaryPanel({
   noteEntries,
   notes,
   setNotes,
+  activeMandate,
+  completedAllMandates,
+  validationInput,
+  setValidationInput,
+  validationMessage,
+  onValidateMandate,
   onSaveNote,
   onSelect
 }: {
@@ -665,6 +792,12 @@ function DiaryPanel({
   noteEntries: { node: NodeItem; body: string }[];
   notes: Record<string, string>;
   setNotes: React.Dispatch<React.SetStateAction<Record<string, string>>>;
+  activeMandate?: Mandate;
+  completedAllMandates: boolean;
+  validationInput: string;
+  setValidationInput: (value: string) => void;
+  validationMessage: string;
+  onValidateMandate: () => void;
   onSaveNote: (nodeId?: string) => void;
   onSelect: (nodeId: string) => void;
 }) {
@@ -682,7 +815,20 @@ function DiaryPanel({
           )) : <EmptyState title="Nessuna nota salvata" body="Apri un nodo e scrivi la prima osservazione. Il diario prende forma mentre indaghi." />}
         </div>
       </div>
-      {selected ? <NotesCard selected={selected} notes={notes} setNotes={setNotes} onSaveNote={onSaveNote} /> : null}
+      <div className="grid content-start gap-5">
+        {selected ? (
+          <MandateCard
+            mandate={activeMandate}
+            selected={selected}
+            completedAllMandates={completedAllMandates}
+            validationInput={validationInput}
+            setValidationInput={setValidationInput}
+            validationMessage={validationMessage}
+            onValidate={onValidateMandate}
+          />
+        ) : null}
+        {selected ? <NotesCard selected={selected} notes={notes} setNotes={setNotes} onSaveNote={onSaveNote} /> : null}
+      </div>
     </div>
   );
 }
@@ -698,6 +844,12 @@ function BoardPanel({
   setTargetId,
   label,
   setLabel,
+  activeMandate,
+  completedAllMandates,
+  validationInput,
+  setValidationInput,
+  validationMessage,
+  onValidateMandate,
   onCreateConnection,
   onSelect
 }: {
@@ -711,6 +863,12 @@ function BoardPanel({
   setTargetId: (id: string) => void;
   label: string;
   setLabel: (label: string) => void;
+  activeMandate?: Mandate;
+  completedAllMandates: boolean;
+  validationInput: string;
+  setValidationInput: (value: string) => void;
+  validationMessage: string;
+  onValidateMandate: () => void;
   onCreateConnection: () => void;
   onSelect: (nodeId: string) => void;
 }) {
@@ -742,17 +900,28 @@ function BoardPanel({
           {!officialConnections.length ? <EmptyState title="Nessun filo ufficiale" body="Apri altri nodi o crea una connessione personale." /> : null}
         </div>
       </div>
-      <ConnectionComposer
-        nodes={dossier.nodes}
-        sourceId={sourceId}
-        setSourceId={setSourceId}
-        targetId={targetId}
-        setTargetId={setTargetId}
-        label={label}
-        setLabel={setLabel}
-        onCreateConnection={onCreateConnection}
-        userConnections={userConnections}
-      />
+      <div className="grid content-start gap-5">
+        <MandateCard
+          mandate={activeMandate}
+          selected={selected}
+          completedAllMandates={completedAllMandates}
+          validationInput={validationInput}
+          setValidationInput={setValidationInput}
+          validationMessage={validationMessage}
+          onValidate={onValidateMandate}
+        />
+        <ConnectionComposer
+          nodes={dossier.nodes}
+          sourceId={sourceId}
+          setSourceId={setSourceId}
+          targetId={targetId}
+          setTargetId={setTargetId}
+          label={label}
+          setLabel={setLabel}
+          onCreateConnection={onCreateConnection}
+          userConnections={userConnections}
+        />
+      </div>
     </div>
   );
 }
@@ -824,30 +993,90 @@ function NodeBrief({ selected }: { selected: NodeItem }) {
   );
 }
 
-function QuestionCue({ dossier, selected }: { dossier: WorkspaceCase; selected: NodeItem }) {
+function MandateCard({
+  mandate,
+  selected,
+  completedAllMandates,
+  validationInput,
+  setValidationInput,
+  validationMessage,
+  onValidate
+}: {
+  mandate?: Mandate;
+  selected: NodeItem;
+  completedAllMandates: boolean;
+  validationInput: string;
+  setValidationInput: (value: string) => void;
+  validationMessage: string;
+  onValidate: () => void;
+}) {
+  if (!mandate) return null;
+  const needsText = mandate.kind === "place-answer" || mandate.kind === "deduction";
+  const actionLabel = mandate.kind === "connection" ? "Verifica filo" : mandate.kind === "deduction" ? "Registra deduzione" : "Registra prova";
+
   return (
-    <section className="border border-white/10 bg-white/[0.025] p-4">
-      <PanelTitle title="Cosa fare adesso" />
-      <div className="grid gap-2 text-sm text-archive-500">
-        <p>1. Apri almeno una fonte collegata a {selected.title}.</p>
-        <p>2. Scrivi una nota nel Diario.</p>
-        <p>3. Crea un filo in Lavagna con un altro nodo.</p>
-        <p>4. Torna alla domanda: {dossier.questions[0]?.text}</p>
-      </div>
+    <section className="border border-brass/30 bg-brass/5 p-4">
+      <PanelTitle title={completedAllMandates ? "Ricostruzione registrata" : mandate.title} />
+      <p className="text-sm font-semibold leading-6">{completedAllMandates ? "Il fascicolo resta aperto." : mandate.question}</p>
+      <p className="mt-2 text-sm leading-6 text-archive-500">{completedAllMandates ? "L'Archivio ha registrato la tua ricostruzione. Ora puoi continuare a esplorare, ma non cercare una verità definitiva." : mandate.objective}</p>
+
+      {!completedAllMandates ? (
+        <>
+          <div className="mt-4 grid gap-2 text-sm text-archive-500">
+            {mandate.required.map((item, index) => (
+              <p key={item} className="flex gap-2">
+                <span className="text-brass">{index + 1}.</span>
+                <span>{item}</span>
+              </p>
+            ))}
+          </div>
+
+          {needsText ? (
+            <textarea
+              value={validationInput}
+              onChange={(event) => setValidationInput(event.target.value)}
+              className="mt-4 h-28 w-full resize-none border border-white/10 bg-black/35 p-3 text-sm leading-6 outline-none focus:border-brass/60"
+              placeholder={mandate.kind === "deduction" ? `Scrivi la deduzione su ${selected.title}...` : "Scrivi il nome del luogo..."}
+            />
+          ) : (
+            <p className="mt-4 border border-white/10 bg-black/35 p-3 text-sm leading-6 text-archive-500">La prova non si scrive: deve comparire in Lavagna come connessione personale.</p>
+          )}
+
+          {validationMessage ? <p className="mt-3 border border-rust/40 bg-rust/10 p-3 text-sm leading-6 text-ink">{validationMessage}</p> : null}
+
+          <button onClick={onValidate} className="mt-4 w-full border border-brass/60 bg-brass px-4 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-black transition hover:brightness-110">
+            {actionLabel}
+          </button>
+        </>
+      ) : null}
     </section>
   );
 }
 
-function DocumentShelf({ selected }: { selected: NodeItem }) {
+function DocumentShelf({ selected, unlockedDocumentIds, activeMandate }: { selected: NodeItem; unlockedDocumentIds: string[]; activeMandate?: Mandate }) {
   if (!selected.documents.length) {
     return <EmptyState title="Nessun reperto collegato" body="Prova un altro nodo o usa Cerca per trovare fonti nel fascicolo." />;
+  }
+  const unlocked = selected.documents.filter((document) => unlockedDocumentIds.includes(document.id));
+  const lockedCount = selected.documents.length - unlocked.length;
+
+  if (!unlocked.length) {
+    return (
+      <section className="border border-white/10 bg-black/30 p-5">
+        <PanelTitle title="Reperti non ancora acquisiti" />
+        <p className="text-sm leading-6 text-archive-500">
+          {lockedCount} reperti collegati a {selected.title}. L'Archivista li aprirà quando il mandato produrrà una prova.
+        </p>
+        {activeMandate ? <p className="mt-3 text-sm leading-6 text-ledger">{activeMandate.objective}</p> : null}
+      </section>
+    );
   }
 
   return (
     <section>
       <PanelTitle title="Reperti collegati" />
       <div className="grid gap-4 md:grid-cols-2">
-        {selected.documents.map((document) => (
+        {unlocked.map((document) => (
           <article key={document.id} className="document-relic p-5 text-archive-950">
             <p className="text-[0.65rem] uppercase tracking-[0.22em] text-rust">{document.kind}</p>
             <h4 className="mt-2 text-xl font-semibold text-archive-950">{document.title}</h4>
@@ -856,6 +1085,7 @@ function DocumentShelf({ selected }: { selected: NodeItem }) {
           </article>
         ))}
       </div>
+      {lockedCount > 0 ? <p className="mt-3 text-xs uppercase tracking-[0.16em] text-archive-500">{lockedCount} reperti ancora sigillati</p> : null}
     </section>
   );
 }

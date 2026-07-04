@@ -1,5 +1,5 @@
 import { pbkdf2Sync, randomBytes } from "node:crypto";
-import { PrismaClient, ReliabilityLevel, NodeType } from "@prisma/client";
+import { MandateKind, PrismaClient, ReliabilityLevel, NodeType } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
@@ -9,6 +9,7 @@ async function main() {
   await prisma.userNote.deleteMany();
   await prisma.userProgress.deleteMany();
   await prisma.liveUnlock.deleteMany();
+  await prisma.investigativeMandate.deleteMany();
   await prisma.question.deleteMany();
   await prisma.document.deleteMany();
   await prisma.nodeConnection.deleteMany();
@@ -76,6 +77,9 @@ async function main() {
     ]
   });
 
+  const documents = await prisma.document.findMany({ where: { caseId: case001.id } });
+  const documentByTitle = Object.fromEntries(documents.map((item) => [item.title, item]));
+
   const connections: Array<[string, string, string, string, ReliabilityLevel]> = [
     ["Domenico Manzoni", "Palazzo Manzoni", "abitava presso", "La residenza aiuta a partire dalla dimensione domestica del caso.", "verified"],
     ["Domenico Manzoni", "Sera del 26 maggio 1817", "vittima durante", "L'evento cardine del fascicolo.", "documented"],
@@ -107,6 +111,68 @@ async function main() {
       { caseId: case001.id, text: "Chi era davvero Domenico Manzoni?", context: "Distingui profilo pubblico, rete familiare e memoria postuma.", order: 1 },
       { caseId: case001.id, text: "Cosa accadde la sera del 26 maggio 1817?", context: "Confronta timeline, luoghi e percorsi alternativi.", order: 2 },
       { caseId: case001.id, text: "Chi poteva avere interesse a eliminarlo?", context: "Costruisci ipotesi solo quando hai collegato fonti e nodi.", order: 3 }
+    ]
+  });
+
+  await prisma.investigativeMandate.createMany({
+    data: [
+      mandate(
+        case001.id,
+        1,
+        "Mandato 01",
+        "Cosa accadde la sera del 26 maggio 1817?",
+        "L'Archivio non parte dalle risposte. Parte da un luogo.",
+        "Identifica il punto da cui iniziare la ricostruzione.",
+        ["Apri il Voltone Teodoli", "Osserva il luogo in Street View", "Registra il nome del luogo"],
+        "place_answer",
+        [documentByTitle["Mappa del percorso"].id],
+        "Reperto sbloccato: Mappa del percorso.",
+        "La traccia è ancora troppo generica. L'Archivio cerca il nome del passaggio.",
+        "Se il passaggio è corretto, qualcuno conosceva tempi e abitudini della vittima.",
+        {
+          focusNodeId: byTitle["Voltone Teodoli"].id,
+          aliases: ["voltone", "voltone teodoli", "il voltone", "passaggio teodoli"]
+        }
+      ),
+      mandate(
+        case001.id,
+        2,
+        "Mandato 02",
+        "Cosa accadde la sera del 26 maggio 1817?",
+        "Un luogo isolato è solo una coordinata. Collegalo a un evento.",
+        "Costruisci in Lavagna il filo tra la sera del 26 maggio 1817 e il Voltone Teodoli.",
+        ["Vai in Lavagna", "Collega evento e luogo", "Registra la connessione"],
+        "connection",
+        [documentByTitle["Articolo sull'omicidio"].id],
+        "Reperto sbloccato: Articolo sull'omicidio.",
+        "La Lavagna non sostiene ancora la pista. Serve un filo tra evento e luogo.",
+        "La mappa suggerisce un percorso. Ora bisogna capire chi aveva interesse a guidarlo.",
+        {
+          focusNodeId: byTitle["Sera del 26 maggio 1817"].id,
+          sourceNodeId: byTitle["Sera del 26 maggio 1817"].id,
+          targetNodeId: byTitle["Voltone Teodoli"].id
+        }
+      ),
+      mandate(
+        case001.id,
+        3,
+        "Mandato 03",
+        "Chi era davvero Domenico Manzoni?",
+        "La memoria pubblica non coincide sempre con la verità privata.",
+        "Scrivi una deduzione che colleghi Manzoni, Canova e la memoria postuma.",
+        ["Consulta i nodi persona", "Apri Diario", "Scrivi una deduzione supportata"],
+        "deduction",
+        [documentByTitle["Scheda biografica Manzoni"].id, documentByTitle["Nota sul monumento funebre"].id],
+        "Reperti sbloccati: memoria biografica e monumento funebre.",
+        "La deduzione ha bisogno di più attrito: inserisci Manzoni, Canova e il monumento.",
+        "L'Archivio ha registrato la tua ricostruzione. Il fascicolo resta aperto.",
+        {
+          focusNodeId: byTitle["Domenico Manzoni"].id,
+          sourceNodeId: byTitle["Domenico Manzoni"].id,
+          targetNodeId: byTitle["Antonio Canova"].id,
+          keywords: ["manzoni", "canova", "monumento"]
+        }
+      )
     ]
   });
 
@@ -184,6 +250,48 @@ function doc(
   reliability: ReliabilityLevel
 ) {
   return { caseId, nodeId, title, kind, excerpt, content, sourceLabel, dateLabel, reliability };
+}
+
+function mandate(
+  caseId: string,
+  order: number,
+  title: string,
+  question: string,
+  intro: string,
+  objective: string,
+  required: string[],
+  kind: MandateKind,
+  rewardDocumentIds: string[],
+  rewardText: string,
+  feedback: string,
+  cliffhanger: string,
+  options: {
+    focusNodeId?: string;
+    sourceNodeId?: string;
+    targetNodeId?: string;
+    aliases?: string[];
+    keywords?: string[];
+  } = {}
+) {
+  return {
+    caseId,
+    order,
+    title,
+    question,
+    intro,
+    objective,
+    required,
+    kind,
+    focusNodeId: options.focusNodeId,
+    sourceNodeId: options.sourceNodeId,
+    targetNodeId: options.targetNodeId,
+    aliases: options.aliases ?? [],
+    keywords: options.keywords ?? [],
+    rewardDocumentIds,
+    rewardText,
+    feedback,
+    cliffhanger
+  };
 }
 
 function hashPassword(password: string) {

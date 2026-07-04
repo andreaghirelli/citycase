@@ -61,6 +61,7 @@ export async function getCaseWorkspace(caseId: string) {
         orderBy: { createdAt: "asc" }
       },
       questions: { orderBy: { order: "asc" } },
+      mandates: { orderBy: { order: "asc" } },
       documents: { orderBy: { title: "asc" } },
       liveUnlocks: true,
       userProgress: { where: { userId } },
@@ -136,6 +137,25 @@ export async function getCaseWorkspace(caseId: string) {
       context: question.context,
       order: question.order
     })),
+    mandates: dossier.mandates.map((mandate) => ({
+      id: mandate.id,
+      order: mandate.order,
+      title: mandate.title,
+      question: mandate.question,
+      intro: mandate.intro,
+      objective: mandate.objective,
+      required: stringArray(mandate.required),
+      kind: mandate.kind === "place_answer" ? "place-answer" as const : mandate.kind,
+      focusNodeId: mandate.focusNodeId,
+      sourceNodeId: mandate.sourceNodeId,
+      targetNodeId: mandate.targetNodeId,
+      aliases: stringArray(mandate.aliases),
+      keywords: stringArray(mandate.keywords),
+      rewardDocumentIds: stringArray(mandate.rewardDocumentIds),
+      rewardText: mandate.rewardText,
+      feedback: mandate.feedback,
+      cliffhanger: mandate.cliffhanger
+    })),
     documents: dossier.documents.map((document) => ({
       id: document.id,
       nodeId: document.nodeId,
@@ -174,3 +194,7 @@ export async function getCaseWorkspace(caseId: string) {
 }
 
 export type WorkspaceCase = NonNullable<Awaited<ReturnType<typeof getCaseWorkspace>>>;
+
+function stringArray(value: unknown) {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+}
