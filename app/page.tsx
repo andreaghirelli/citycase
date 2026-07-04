@@ -46,7 +46,7 @@ export default async function DashboardPage() {
         </div>
       </header>
 
-      <section className="mx-auto grid max-w-[1760px] gap-5 px-6 py-5 xl:grid-cols-[16rem_minmax(0,1fr)_20rem]">
+      <section className="mx-auto grid max-w-[1760px] gap-5 px-6 py-5 xl:grid-cols-[16rem_minmax(0,1fr)]">
         <aside className="border-r border-brass/15 pr-5">
           <p className="text-xs uppercase tracking-[0.24em] text-brass">Progresso del caso</p>
           <div className="mt-6 grid h-36 w-36 place-items-center rounded-full border-[10px] border-archive-700 bg-black/30 text-3xl font-semibold text-brass">
@@ -107,31 +107,38 @@ export default async function DashboardPage() {
             <Feature icon={<FileText size={18} />} title="Storia vera, emozione vera" body="Documenti, persone e tracce restano nel tuo archivio personale." />
             <Feature icon={<ScrollText size={18} />} title="Ogni scoperta conta" body="Note, connessioni e progresso appartengono al tuo profilo." />
           </div>
-        </section>
 
-        <aside className="border-l border-brass/15 pl-5">
           {cases[0] ? (
-            <div className="border border-brass/20 bg-archive-900/80">
-              <div className="h-44 bg-[url('/brand/citycase-brand-board.png')] bg-cover bg-center opacity-80" />
-              <div className="p-5">
+            <div className="grid gap-4 border-t border-brass/20 p-5 lg:grid-cols-[1.2fr_0.8fr]">
+              <div className="border border-white/10 bg-black/30 p-5">
                 <p className="text-xs uppercase tracking-[0.22em] text-brass">Fascicolo attivo</p>
-                <h3 className="mt-2 text-2xl font-semibold">{cases[0].title}</h3>
-                <p className="mt-1 text-sm text-archive-500">
-                  {cases[0].city.name}, {cases[0].year}
-                </p>
-                <p className="mt-4 text-sm leading-6 text-archive-500">{cases[0].summary}</p>
-                <div className="mt-5 grid gap-3 text-sm">
-                  <Action text="Consulta i documenti" />
-                  <Action text="Lascia una nota" />
-                  <Action text="Verifica dal vivo" />
+                <div className="mt-3 grid gap-4 md:grid-cols-[1fr_auto] md:items-end">
+                  <div>
+                    <h3 className="text-3xl font-semibold">{cases[0].title}</h3>
+                    <p className="mt-1 text-sm text-archive-500">
+                      {cases[0].city.name}, {cases[0].year}
+                    </p>
+                    <p className="mt-4 max-w-3xl text-sm leading-6 text-archive-500">{cases[0].summary}</p>
+                  </div>
+                  <Link href={`/cases/${cases[0].id}`} className="bg-brass px-5 py-3 text-center text-sm font-semibold uppercase tracking-[0.18em] text-black">
+                    Entra nel fascicolo
+                  </Link>
                 </div>
-                <Link href={`/cases/${cases[0].id}`} className="mt-5 block bg-brass px-4 py-3 text-center text-sm font-semibold uppercase tracking-[0.18em] text-black">
-                  Entra nel fascicolo
+              </div>
+              <div className="grid gap-3 text-sm md:grid-cols-3 lg:grid-cols-1">
+                <Link href={`/cases/${cases[0].id}?view=diary`} className="border border-white/10 bg-black/25 px-4 py-3 text-ink/85 transition hover:border-brass/50 hover:text-brass">
+                  Diario e note
+                </Link>
+                <Link href={`/cases/${cases[0].id}?view=board`} className="border border-white/10 bg-black/25 px-4 py-3 text-ink/85 transition hover:border-brass/50 hover:text-brass">
+                  Lavagna connessioni
+                </Link>
+                <Link href={`/cases/${cases[0].id}?view=atlas`} className="border border-white/10 bg-black/25 px-4 py-3 text-ink/85 transition hover:border-brass/50 hover:text-brass">
+                  Atlante scoperte
                 </Link>
               </div>
             </div>
           ) : null}
-        </aside>
+        </section>
       </section>
     </main>
   );
@@ -156,8 +163,4 @@ function Feature({ icon, title, body }: { icon: React.ReactNode; title: string; 
       <p className="mt-2 text-sm leading-6 text-archive-500">{body}</p>
     </div>
   );
-}
-
-function Action({ text }: { text: string }) {
-  return <div className="border border-white/10 bg-black/20 px-3 py-2 text-ink/80">{text}</div>;
 }

@@ -95,15 +95,12 @@ export function LoginPanel() {
     if (!emailIsValid) setStep("email");
   }
 
-  function startGoogleLogin() {
-    window.location.assign("/api/auth/google");
-  }
-
   return (
-    <main className="min-h-screen overflow-hidden bg-[#14151b] text-ink">
+    <main className="min-h-screen bg-[#14151b] text-ink">
       <section className="grid min-h-screen lg:grid-cols-[1fr_34rem]">
-        <div className="relative flex min-h-[34rem] items-center justify-center bg-[url('/brand/citycase-brand-board.png')] bg-cover bg-center">
-          <div className="absolute inset-0 bg-black/70" />
+        <div className="relative flex min-h-[34rem] items-center justify-center bg-[url('/brand/citycase-evidence-board.jpg')] bg-cover bg-center">
+          <div className="absolute inset-0 bg-black/68" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_42%_38%,rgba(200,162,74,0.16),transparent_22rem),linear-gradient(90deg,rgba(0,0,0,0.15),rgba(0,0,0,0.78))]" />
           <div className="absolute inset-y-0 right-0 hidden w-px bg-brass/25 lg:block" />
           <div className="relative max-w-3xl px-8">
             <img src="/brand/citycase-logo-symbol.png" alt="CityCase Nodo Intrecciato" className="h-24 w-24 border border-brass/40 object-cover" />
@@ -132,6 +129,23 @@ export function LoginPanel() {
                 </p>
                 <h2 className="mt-4 text-4xl font-semibold leading-tight md:text-5xl">{title}</h2>
                 <p className="mt-4 min-h-6 text-base text-ink/60">{helperText}</p>
+              </div>
+
+              <div className="mb-7 grid grid-cols-2 rounded-full border border-white/10 bg-black/25 p-1 text-sm uppercase tracking-[0.14em]">
+                <button
+                  type="button"
+                  onClick={() => switchMode("register")}
+                  className={`rounded-full px-4 py-3 transition ${mode === "register" ? "bg-brass text-black" : "text-ink/55 hover:text-ink"}`}
+                >
+                  Iscriviti
+                </button>
+                <button
+                  type="button"
+                  onClick={() => switchMode("login")}
+                  className={`rounded-full px-4 py-3 transition ${mode === "login" ? "bg-brass text-black" : "text-ink/55 hover:text-ink"}`}
+                >
+                  Accedi
+                </button>
               </div>
 
               {step === "email" ? (
@@ -191,37 +205,6 @@ export function LoginPanel() {
                 {step === "email" ? "Continua" : actionLabel}
               </button>
             </form>
-
-            {step === "email" ? (
-              <>
-                <div className="my-9 grid grid-cols-[1fr_auto_1fr] items-center gap-6 text-lg text-ink/60">
-                  <span className="h-px bg-white/14" />
-                  oppure
-                  <span className="h-px bg-white/14" />
-                </div>
-
-                <div className="grid gap-5">
-                  <button
-                    type="button"
-                    onClick={startGoogleLogin}
-                    className="grid min-h-16 grid-cols-[4rem_1fr_4rem] items-center rounded-full bg-white/[0.04] text-xl text-ink transition hover:bg-white/[0.07]"
-                  >
-                    <span className="ml-2 grid h-12 w-12 place-items-center rounded-full bg-white text-2xl font-bold text-[#4285f4]">G</span>
-                    Continua con Google
-                    <span />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setError("Apple Login richiede un account Apple Developer e una chiave Sign in with Apple. Lo configuriamo dopo Google.")}
-                    className="grid min-h-16 grid-cols-[4rem_1fr_4rem] items-center rounded-full bg-white/[0.025] text-xl text-ink/55 transition hover:bg-white/[0.04]"
-                  >
-                    <span className="ml-2 grid h-12 w-12 place-items-center rounded-full bg-white text-2xl font-bold text-black">A</span>
-                    Continua con Apple
-                    <span />
-                  </button>
-                </div>
-              </>
-            ) : null}
 
             <div className="mt-9 text-center text-lg text-ink/60">
               {mode === "register" ? "Hai gia un account? " : "Non hai ancora un account? "}
