@@ -1,5 +1,5 @@
 import { pbkdf2Sync, randomBytes } from "node:crypto";
-import { MandateKind, PrismaClient, ReliabilityLevel, NodeType } from "@prisma/client";
+import { MandateKind, Prisma, PrismaClient, ReliabilityLevel, NodeType } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
@@ -51,34 +51,66 @@ async function main() {
   });
 
   const nodes = await Promise.all([
-    node(case001.id, "place", "Voltone Teodoli", "Passaggio storico", "Un luogo di attraversamento nel centro di Forlì, trattato nel fascicolo come punto sensibile per ricostruire tragitti e avvistamenti.", "Centro storico di Forlì", 44.22295, 12.04165, "documented", 1),
-    node(case001.id, "place", "Palazzo Manzoni", "Residenza familiare", "La dimora associata alla famiglia Manzoni e al contesto sociale in cui matura il caso.", "Corso Giuseppe Garibaldi, Forlì", 44.22178, 12.03892, "documented", 2),
-    node(case001.id, "place", "Chiesa della Santissima Trinità", "Luogo religioso", "Nodo utile per leggere rituali, memoria pubblica e possibili testimonianze raccolte dopo il delitto.", "Piazza Melozzo degli Ambrogi, Forlì", 44.22224, 12.04294, "documented", 3),
-    node(case001.id, "place", "Via Francesco Canestri", "Asse urbano", "Una via cittadina inserita nella mappa del percorso ipotizzato per la sera del 26 maggio 1817.", "Via Francesco Canestri, Forlì", 44.22331, 12.03978, "probable", 4),
-    node(case001.id, "place", "Via Goffredo Mameli", "Asse urbano", "Un tratto urbano secondario che aiuta a verificare distanze, angoli ciechi e tempi di movimento.", "Via Goffredo Mameli, Forlì", 44.22404, 12.04334, "probable", 5),
-    node(case001.id, "person", "Domenico Manzoni", "Vittima", "Figura centrale del fascicolo. La sua posizione pubblica, le relazioni familiari e il patrimonio rendono il caso più complesso di un semplice episodio criminale.", undefined, undefined, undefined, "verified", 6),
-    node(case001.id, "person", "Gertruda Versari", "Relazione familiare", "Presenza ricorrente nelle memorie sul caso, utile per interpretare dinamiche private e conseguenze ereditarie.", undefined, undefined, undefined, "documented", 7),
-    node(case001.id, "person", "Antonio Canova", "Scultore", "Il suo nome compare nel fascicolo per il monumento funebre e per la rete culturale legata alla famiglia Manzoni.", undefined, undefined, undefined, "documented", 8),
-    node(case001.id, "person", "Oliverotto Fabretti", "Possibile testimone o intermediario", "Figura laterale ma intrigante, indicata come punto di passaggio tra voci cittadine e ricostruzione documentaria.", undefined, undefined, undefined, "oral_tradition", 9),
-    node(case001.id, "person", "Investigatore anonimo del 1817", "Voce del fascicolo", "Una funzione narrativa e archivistica: raccoglie tracce, contraddizioni e appunti senza sostituirsi alle fonti.", undefined, undefined, undefined, "citycase_hypothesis", 10),
-    node(case001.id, "event", "Sera del 26 maggio 1817", "Evento cardine", "La finestra temporale principale: movimenti, incontri e silenzi devono essere confrontati con i luoghi della mappa.", undefined, undefined, undefined, "documented", 11),
-    node(case001.id, "object", "Danzatrice Manzoni", "Opera e memoria", "Oggetto culturale citato nel fascicolo per collegare storia familiare, committenze artistiche e memoria pubblica.", undefined, undefined, undefined, "documented", 12)
+    node(case001.id, "place", "Voltone Teodoli", "Passaggio storico", "Luogo dell'aggressione mortale a Domenico Manzoni. Prima di cercare un movente, il fascicolo chiede di confermare il punto esatto.", "Centro storico di Forlì", 44.22295, 12.04165, "documented", 1, {
+      discovered: true,
+      metadata: {
+        externalId: "N001",
+        liveEnabled: true,
+        initiallyVisible: true,
+        role: "Luogo dell'aggressione mortale a Domenico Manzoni.",
+        archivistMessage: "Prima di cercare un assassino dobbiamo essere certi del luogo dell'aggressione. Raggiungi il Voltone e osserva.",
+        investigationQuestion: "Secondo le fonti consultate, in quale luogo avvenne l'aggressione?",
+        observationTask: "Osserva la conformazione del luogo. Quali elementi potrebbero aver favorito un'aggressione? Annota le tue osservazioni nel Diario.",
+        connectedPeople: ["Domenico Manzoni"],
+        connectedPlaces: ["Palazzo Manzoni", "Via Francesco Canestri"],
+        validationType: "text",
+        acceptedAnswers: ["Voltone", "Voltone Teodoli", "Il Voltone"],
+        unlocks: ["N002"]
+      }
+    }),
+    node(case001.id, "place", "Palazzo Manzoni", "Residenza familiare", "La dimora associata alla famiglia Manzoni. Si sblocca quando il Voltone entra nella ricostruzione.", "Corso Giuseppe Garibaldi, Forlì", 44.22178, 12.03892, "documented", 2, {
+      discovered: false,
+      metadata: { externalId: "N002", liveEnabled: true, initiallyVisible: false }
+    }),
+    node(case001.id, "place", "Chiesa della Santissima Trinità", "Luogo religioso", "Nodo utile per leggere rituali, memoria pubblica e possibili testimonianze raccolte dopo il delitto.", "Piazza Melozzo degli Ambrogi, Forlì", 44.22224, 12.04294, "documented", 3, {
+      discovered: false,
+      metadata: { externalId: "N003", initiallyVisible: false }
+    }),
+    node(case001.id, "place", "Via Francesco Canestri", "Asse urbano", "Una via cittadina inserita nella mappa del percorso ipotizzato per la sera del 26 maggio 1817.", "Via Francesco Canestri, Forlì", 44.22331, 12.03978, "probable", 4, {
+      discovered: false,
+      metadata: { externalId: "N004", initiallyVisible: false }
+    }),
+    node(case001.id, "place", "Via Goffredo Mameli", "Asse urbano", "Un tratto urbano secondario che aiuta a verificare distanze, angoli ciechi e tempi di movimento.", "Via Goffredo Mameli, Forlì", 44.22404, 12.04334, "probable", 5, {
+      discovered: false,
+      metadata: { externalId: "N005", initiallyVisible: false }
+    }),
+    node(case001.id, "person", "Domenico Manzoni", "Vittima", "Figura centrale del fascicolo. La sua posizione pubblica, le relazioni familiari e il patrimonio rendono il caso più complesso di un semplice episodio criminale.", undefined, undefined, undefined, "verified", 6, {
+      discovered: true,
+      metadata: { externalId: "P001", initiallyVisible: true }
+    }),
+    node(case001.id, "person", "Gertruda Versari", "Relazione familiare", "Presenza ricorrente nelle memorie sul caso, utile per interpretare dinamiche private e conseguenze ereditarie.", undefined, undefined, undefined, "documented", 7, { discovered: false }),
+    node(case001.id, "person", "Antonio Canova", "Scultore", "Il suo nome compare nel fascicolo per il monumento funebre e per la rete culturale legata alla famiglia Manzoni.", undefined, undefined, undefined, "documented", 8, { discovered: false }),
+    node(case001.id, "person", "Oliverotto Fabretti", "Possibile testimone o intermediario", "Figura laterale ma intrigante, indicata come punto di passaggio tra voci cittadine e ricostruzione documentaria.", undefined, undefined, undefined, "oral_tradition", 9, { discovered: false }),
+    node(case001.id, "person", "Investigatore anonimo del 1817", "Voce del fascicolo", "Una funzione narrativa e archivistica: raccoglie tracce, contraddizioni e appunti senza sostituirsi alle fonti.", undefined, undefined, undefined, "citycase_hypothesis", 10, { discovered: true }),
+    node(case001.id, "event", "Sera del 26 maggio 1817", "Evento cardine", "La finestra temporale principale: movimenti, incontri e silenzi devono essere confrontati con i luoghi della mappa.", undefined, undefined, undefined, "documented", 11, { discovered: true }),
+    node(case001.id, "object", "Danzatrice Manzoni", "Opera e memoria", "Oggetto culturale citato nel fascicolo per collegare storia familiare, committenze artistiche e memoria pubblica.", undefined, undefined, undefined, "documented", 12, { discovered: false })
   ]);
 
   const byTitle = Object.fromEntries(nodes.map((item) => [item.title, item]));
 
-  await prisma.document.createMany({
-    data: [
-      doc(case001.id, byTitle["Domenico Manzoni"].id, "Articolo sull'omicidio", "ritaglio", "Un resoconto sintetico dell'evento, con enfasi sulle circostanze e sulle reazioni in città.", "Il documento riassume l'uccisione di Domenico Manzoni e suggerisce che il delitto abbia prodotto un'immediata frattura nella memoria pubblica forlivese.", "Archivio demo CityCase", "1817", "documented"),
-      doc(case001.id, byTitle["Domenico Manzoni"].id, "Scheda biografica Manzoni", "scheda", "Profilo essenziale della vittima e del suo ambiente sociale.", "La scheda raccoglie dati biografici, relazioni familiari e contesto patrimoniale, lasciando aperta la domanda sul peso politico e privato della figura di Manzoni.", "Archivio demo CityCase", "XIX secolo", "verified"),
-      doc(case001.id, byTitle["Voltone Teodoli"].id, "Mappa del percorso", "mappa", "Tracciato di lavoro per confrontare luoghi, distanze e sequenza temporale.", "La mappa non pretende di chiudere il caso: evidenzia invece i punti urbani da verificare nella ricostruzione della sera del 26 maggio.", "Elaborazione CityCase", "2026", "citycase_hypothesis"),
-      doc(case001.id, byTitle["Antonio Canova"].id, "Nota sul monumento funebre", "nota archivistica", "Appunto sul ruolo della memoria funeraria nella costruzione del caso.", "La nota collega Canova alla memoria di Manzoni e suggerisce che il monumento vada letto come indizio culturale, non solo commemorativo.", "Archivio demo CityCase", "XIX secolo", "documented"),
-      doc(case001.id, byTitle["Danzatrice Manzoni"].id, "Nota sulla Danzatrice Manzoni", "nota storico-artistica", "Riferimento all'opera come traccia laterale della rete Manzoni.", "L'opera viene trattata come un nodo culturale: non prova un movente, ma illumina relazioni, status e rappresentazione pubblica della famiglia.", "Archivio demo CityCase", "XIX secolo", "probable")
-    ]
-  });
+  const seededDocuments = [];
+  for (const document of [
+    doc(case001.id, byTitle["Voltone Teodoli"].id, "DOC001 — Scheda Voltone Teodoli", "scheda luogo", "Passaggio coperto nel centro storico di Forlì.", "Il Voltone è trattato come punto di verifica: un luogo stretto, attraversabile e adatto a confrontare tempi, visuali e possibili avvicinamenti.", "Archivio demo CityCase", "1817", "documented"),
+    doc(case001.id, byTitle["Voltone Teodoli"].id, "DOC002 — Estratto storico sul delitto", "estratto", "Le fonti collocano l'aggressione in corrispondenza del Voltone.", "L'estratto non chiude il caso: indica il luogo dell'aggressione e costringe a distinguere tra memoria cittadina, percorso e ricostruzione coerente.", "Archivio demo CityCase", "1817", "documented"),
+    doc(case001.id, byTitle["Voltone Teodoli"].id, "DOC003 — Mappa del percorso", "mappa", "Tracciato di lavoro per confrontare luoghi, distanze e sequenza temporale.", "La mappa evidenzia il Voltone come primo punto urbano da verificare nella ricostruzione della sera del 26 maggio.", "Elaborazione CityCase", "2026", "citycase_hypothesis"),
+    doc(case001.id, byTitle["Domenico Manzoni"].id, "Scheda biografica Manzoni", "scheda", "Profilo essenziale della vittima e del suo ambiente sociale.", "La scheda raccoglie dati biografici, relazioni familiari e contesto patrimoniale, lasciando aperta la domanda sul peso politico e privato della figura di Manzoni.", "Archivio demo CityCase", "XIX secolo", "verified"),
+    doc(case001.id, byTitle["Antonio Canova"].id, "Nota sul monumento funebre", "nota archivistica", "Appunto sul ruolo della memoria funeraria nella costruzione del caso.", "La nota collega Canova alla memoria di Manzoni e suggerisce che il monumento vada letto come indizio culturale, non solo commemorativo.", "Archivio demo CityCase", "XIX secolo", "documented"),
+    doc(case001.id, byTitle["Danzatrice Manzoni"].id, "Nota sulla Danzatrice Manzoni", "nota storico-artistica", "Riferimento all'opera come traccia laterale della rete Manzoni.", "L'opera viene trattata come un nodo culturale: non prova un movente, ma illumina relazioni, status e rappresentazione pubblica della famiglia.", "Archivio demo CityCase", "XIX secolo", "probable")
+  ]) {
+    seededDocuments.push(await prisma.document.create({ data: document }));
+  }
 
-  const documents = await prisma.document.findMany({ where: { caseId: case001.id } });
-  const documentByTitle = Object.fromEntries(documents.map((item) => [item.title, item]));
+  const documentByTitle = Object.fromEntries(seededDocuments.map((item) => [item.title, item]));
 
   const connections: Array<[string, string, string, string, ReliabilityLevel]> = [
     ["Domenico Manzoni", "Palazzo Manzoni", "abitava presso", "La residenza aiuta a partire dalla dimensione domestica del caso.", "verified"],
@@ -119,58 +151,29 @@ async function main() {
       mandate(
         case001.id,
         1,
-        "Mandato 01",
-        "Cosa accadde la sera del 26 maggio 1817?",
-        "L'Archivio non parte dalle risposte. Parte da un luogo.",
-        "Identifica il punto da cui iniziare la ricostruzione.",
-        ["Apri il Voltone Teodoli", "Osserva il luogo in Street View", "Registra il nome del luogo"],
+        "N001 — Voltone Teodoli",
+        "Secondo le fonti consultate, in quale luogo avvenne l'aggressione?",
+        "Prima di cercare un assassino dobbiamo essere certi del luogo dell'aggressione. Raggiungi il Voltone e osserva.",
+        "Conferma il luogo dell'aggressione attraverso mappa, Street View e fonti disponibili.",
+        ["Apri il Voltone Teodoli", "Osserva la conformazione del luogo", "Consulta i documenti disponibili", "Scrivi la tua deduzione"],
         "place_answer",
-        [documentByTitle["Mappa del percorso"].id],
-        "Reperto sbloccato: Mappa del percorso.",
-        "La traccia è ancora troppo generica. L'Archivio cerca il nome del passaggio.",
-        "Se il passaggio è corretto, qualcuno conosceva tempi e abitudini della vittima.",
+        [],
+        "Mandato validato. Fascicolo aggiornato. Nuovo luogo sbloccato: Palazzo Manzoni.",
+        "La deduzione non è ancora sostenuta dalle prove raccolte. Rileggi i documenti e osserva il luogo.",
+        "Il Palazzo Manzoni entra nel fascicolo: casa, reputazione e percorso ora sono nello stesso filo.",
         {
           focusNodeId: byTitle["Voltone Teodoli"].id,
-          aliases: ["voltone", "voltone teodoli", "il voltone", "passaggio teodoli"]
-        }
-      ),
-      mandate(
-        case001.id,
-        2,
-        "Mandato 02",
-        "Cosa accadde la sera del 26 maggio 1817?",
-        "Un luogo isolato è solo una coordinata. Collegalo a un evento.",
-        "Costruisci in Lavagna il filo tra la sera del 26 maggio 1817 e il Voltone Teodoli.",
-        ["Vai in Lavagna", "Collega evento e luogo", "Registra la connessione"],
-        "connection",
-        [documentByTitle["Articolo sull'omicidio"].id],
-        "Reperto sbloccato: Articolo sull'omicidio.",
-        "La Lavagna non sostiene ancora la pista. Serve un filo tra evento e luogo.",
-        "La mappa suggerisce un percorso. Ora bisogna capire chi aveva interesse a guidarlo.",
-        {
-          focusNodeId: byTitle["Sera del 26 maggio 1817"].id,
-          sourceNodeId: byTitle["Sera del 26 maggio 1817"].id,
-          targetNodeId: byTitle["Voltone Teodoli"].id
-        }
-      ),
-      mandate(
-        case001.id,
-        3,
-        "Mandato 03",
-        "Chi era davvero Domenico Manzoni?",
-        "La memoria pubblica non coincide sempre con la verità privata.",
-        "Scrivi una deduzione che colleghi Manzoni, Canova e la memoria postuma.",
-        ["Consulta i nodi persona", "Apri Diario", "Scrivi una deduzione supportata"],
-        "deduction",
-        [documentByTitle["Scheda biografica Manzoni"].id, documentByTitle["Nota sul monumento funebre"].id],
-        "Reperti sbloccati: memoria biografica e monumento funebre.",
-        "La deduzione ha bisogno di più attrito: inserisci Manzoni, Canova e il monumento.",
-        "L'Archivio ha registrato la tua ricostruzione. Il fascicolo resta aperto.",
-        {
-          focusNodeId: byTitle["Domenico Manzoni"].id,
           sourceNodeId: byTitle["Domenico Manzoni"].id,
-          targetNodeId: byTitle["Antonio Canova"].id,
-          keywords: ["manzoni", "canova", "monumento"]
+          targetNodeId: byTitle["Voltone Teodoli"].id,
+          aliases: ["voltone", "voltone teodoli", "il voltone"],
+          availableDocumentIds: [
+            documentByTitle["DOC001 — Scheda Voltone Teodoli"].id,
+            documentByTitle["DOC002 — Estratto storico sul delitto"].id,
+            documentByTitle["DOC003 — Mappa del percorso"].id
+          ],
+          unlockedNodeIds: [byTitle["Palazzo Manzoni"].id],
+          placeToReach: "Voltone Teodoli",
+          observationTask: "Osserva la conformazione del luogo. Quali elementi potrebbero aver favorito un'aggressione? Annota le tue osservazioni nel Diario."
         }
       )
     ]
@@ -202,8 +205,13 @@ async function main() {
       userId: demoUser.id,
       caseId: case001.id,
       status: "in_progress",
-      progressPercent: 32,
-      discoveredNodes: nodes.map((item) => item.id)
+      progressPercent: 12,
+      discoveredNodes: [byTitle["Voltone Teodoli"].id, byTitle["Domenico Manzoni"].id, byTitle["Investigatore anonimo del 1817"].id, byTitle["Sera del 26 maggio 1817"].id],
+      openedDocuments: [
+        documentByTitle["DOC001 — Scheda Voltone Teodoli"].id,
+        documentByTitle["DOC002 — Estratto storico sul delitto"].id,
+        documentByTitle["DOC003 — Mappa del percorso"].id
+      ]
     }
   });
 
@@ -220,7 +228,8 @@ function node(
   latitude?: number,
   longitude?: number,
   reliability: ReliabilityLevel = "documented",
-  order = 0
+  order = 0,
+  options: { discovered?: boolean; metadata?: Prisma.InputJsonObject } = {}
 ) {
   return prisma.node.create({
     data: {
@@ -233,7 +242,9 @@ function node(
       latitude,
       longitude,
       reliability,
-      order
+      order,
+      discovered: options.discovered ?? false,
+      metadata: options.metadata
     }
   });
 }
@@ -271,6 +282,10 @@ function mandate(
     targetNodeId?: string;
     aliases?: string[];
     keywords?: string[];
+    availableDocumentIds?: string[];
+    unlockedNodeIds?: string[];
+    placeToReach?: string;
+    observationTask?: string;
   } = {}
 ) {
   return {
@@ -280,6 +295,8 @@ function mandate(
     question,
     intro,
     objective,
+    placeToReach: options.placeToReach,
+    observationTask: options.observationTask,
     required,
     kind,
     focusNodeId: options.focusNodeId,
@@ -287,7 +304,9 @@ function mandate(
     targetNodeId: options.targetNodeId,
     aliases: options.aliases ?? [],
     keywords: options.keywords ?? [],
+    availableDocumentIds: options.availableDocumentIds ?? [],
     rewardDocumentIds,
+    unlockedNodeIds: options.unlockedNodeIds ?? [],
     rewardText,
     feedback,
     cliffhanger

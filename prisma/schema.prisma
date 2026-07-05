@@ -125,26 +125,30 @@ model Node {
 }
 
 model InvestigativeMandate {
-  id                String      @id @default(cuid())
-  caseId            String
-  order             Int         @default(0)
-  title             String
-  question          String
-  intro             String
-  objective         String
-  required          Json        @default("[]")
-  kind              MandateKind
-  focusNodeId       String?
-  sourceNodeId      String?
-  targetNodeId      String?
-  aliases           Json        @default("[]")
-  keywords          Json        @default("[]")
-  rewardDocumentIds Json        @default("[]")
-  rewardText        String
-  feedback          String
-  cliffhanger       String
-  createdAt         DateTime    @default(now())
-  updatedAt         DateTime    @updatedAt
+  id                   String      @id @default(cuid())
+  caseId               String
+  order                Int         @default(0)
+  title                String
+  question             String
+  intro                String
+  objective            String
+  placeToReach         String?
+  observationTask      String?
+  required             Json        @default("[]")
+  kind                 MandateKind
+  focusNodeId          String?
+  sourceNodeId         String?
+  targetNodeId         String?
+  aliases              Json        @default("[]")
+  keywords             Json        @default("[]")
+  availableDocumentIds Json        @default("[]")
+  rewardDocumentIds    Json        @default("[]")
+  unlockedNodeIds      Json        @default("[]")
+  rewardText           String
+  feedback             String
+  cliffhanger          String
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
 
   case       Case  @relation(fields: [caseId], references: [id], onDelete: Cascade)
   focusNode  Node? @relation("MandateFocusNode", fields: [focusNodeId], references: [id], onDelete: SetNull)

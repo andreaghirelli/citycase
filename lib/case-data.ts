@@ -89,6 +89,11 @@ export async function getCaseWorkspace(caseId: string) {
     city: dossier.city,
     user,
     progressPercent: dossier.userProgress[0]?.progressPercent ?? 0,
+    progress: {
+      discoveredNodes: stringArray(dossier.userProgress[0]?.discoveredNodes),
+      openedDocuments: stringArray(dossier.userProgress[0]?.openedDocuments),
+      unlockedLive: stringArray(dossier.userProgress[0]?.unlockedLive)
+    },
     nodes: dossier.nodes.map((node) => ({
       id: node.id,
       type: node.type,
@@ -102,6 +107,7 @@ export async function getCaseWorkspace(caseId: string) {
       reliability: node.reliability,
       discovered: node.discovered,
       order: node.order,
+      metadata: node.metadata,
       note: node.notes[0]?.body ?? "",
       documents: node.documents.map((document) => ({
         id: document.id,
@@ -144,6 +150,8 @@ export async function getCaseWorkspace(caseId: string) {
       question: mandate.question,
       intro: mandate.intro,
       objective: mandate.objective,
+      placeToReach: mandate.placeToReach,
+      observationTask: mandate.observationTask,
       required: stringArray(mandate.required),
       kind: mandate.kind === "place_answer" ? "place-answer" as const : mandate.kind,
       focusNodeId: mandate.focusNodeId,
@@ -151,7 +159,9 @@ export async function getCaseWorkspace(caseId: string) {
       targetNodeId: mandate.targetNodeId,
       aliases: stringArray(mandate.aliases),
       keywords: stringArray(mandate.keywords),
+      availableDocumentIds: stringArray(mandate.availableDocumentIds),
       rewardDocumentIds: stringArray(mandate.rewardDocumentIds),
+      unlockedNodeIds: stringArray(mandate.unlockedNodeIds),
       rewardText: mandate.rewardText,
       feedback: mandate.feedback,
       cliffhanger: mandate.cliffhanger

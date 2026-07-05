@@ -62,9 +62,20 @@ function normalizeAnswer(value: string) {
     .trim();
 }
 
+function hasMetadataFlag(metadata: unknown, key: string) {
+  return typeof metadata === "object" && metadata !== null && (metadata as Record<string, unknown>)[key] === true;
+}
+
 export function InvestigationWorkspace({ dossier, mapsApiKey = "" }: { dossier: WorkspaceCase; mapsApiKey?: string }) {
   const displayName = dossier.user?.displayName || dossier.user?.email?.split("@")[0] || dossier.user?.nickname || "Analista";
-  const firstPlace = dossier.nodes.find((node) => node.type === "place") ?? dossier.nodes[0];
+  const initialNodeIds = useMemo(
+    () => Array.from(new Set([
+      ...(dossier.progress?.discoveredNodes ?? []),
+      ...dossier.nodes.filter((node) => node.discovered || hasMetadataFlag(node.metadata, "initiallyVisible")).map((node) => node.id)
+    ])),
+    [dossier.nodes, dossier.progress?.discoveredNodes]
+  );
+  const firstPlace = dossier.nodes.find((node) => node.type === "place" && initialNodeIds.includes(node.id)) ?? dossier.nodes.find((node) => node.type === "place") ?? dossier.nodes[0];
   const [selectedId, setSelectedId] = useState(firstPlace?.id ?? "");
   const [opened, setOpened] = useState<string[]>(firstPlace ? [firstPlace.id] : []);
   const [notes, setNotes] = useState<Record<string, string>>(() => Object.fromEntries(dossier.nodes.map((node) => [node.id, node.note])));
@@ -79,7 +90,8 @@ export function InvestigationWorkspace({ dossier, mapsApiKey = "" }: { dossier: 
   const [view, setView] = useState<WorkspaceView>("desk");
   const [query, setQuery] = useState("");
   const [completedMandates, setCompletedMandates] = useState<string[]>([]);
-  const [unlockedDocumentIds, setUnlockedDocumentIds] = useState<string[]>([]);
+  const [unlockedDocumentIds, setUnlockedDocumentIds] = useState<string[]>(dossier.progress?.openedDocuments ?? []);
+  const [unlockedNodeIds, setUnlockedNodeIds] = useState<string[]>([]);
   const [validationInput, setValidationInput] = useState("");
   const [validationMessage, setValidationMessage] = useState("");
   const [mandateStateLoaded, setMandateStateLoaded] = useState(false);
@@ -89,26 +101,35 @@ export function InvestigationWorkspace({ dossier, mapsApiKey = "" }: { dossier: 
   const activeMandate = mandates.find((mandate) => !completedMandates.includes(mandate.id)) ?? mandates[mandates.length - 1];
   const completedAllMandates = mandates.length > 0 && completedMandates.length >= mandates.length;
   const progressPercent = Math.max(dossier.progressPercent, mandates.length ? Math.round((completedMandates.length / mandates.length) * 100) : dossier.progressPercent);
+  const visibleNodeIds = useMemo(() => new Set([...initialNodeIds, ...unlockedNodeIds]), [initialNodeIds, unlockedNodeIds]);
   const selected = dossier.nodes.find((node) => node.id === selectedId) ?? firstPlace;
-  const places = dossier.nodes.filter((node) => node.type === "place" && node.latitude && node.longitude);
-  const discovered = dossier.nodes.filter((node) => node.discovered);
-  const timeline = dossier.nodes.filter((node) => node.type === "event" || node.dateLabel).sort((a, b) => a.order - b.order);
-  const openedNodes = opened.map((id) => dossier.nodes.find((node) => node.id === id)).filter(Boolean) as NodeItem[];
+  const discovered = dossier.nodes.filter((node) => visibleNodeIds.has(node.id));
+  const places = discovered.filter((node) => node.type === "place" && node.latitude && node.longitude);
+  const timeline = discovered.filter((node) => node.type === "event" || node.dateLabel).sort((a, b) => a.order - b.order);
+  const openedNodes = opened
+    .map((id) => dossier.nodes.find((node) => node.id === id))
+    .filter((node): node is NodeItem => {
+      if (!node) return false;
+      return visibleNodeIds.has(node.id);
+    });
   const selectedConnections = selected
-    ? dossier.connections.filter((connection) => connection.sourceId === selected.id || connection.targetId === selected.id)
+    ? dossier.connections.filter((connection) => {
+        const otherId = connection.sourceId === selected.id ? connection.targetId : connection.targetId === selected.id ? connection.sourceId : "";
+        return otherId && visibleNodeIds.has(otherId);
+      })
     : [];
   const searchResults = useMemo(() => {
     const value = query.trim().toLowerCase();
     if (!value) return [];
-    return dossier.nodes.filter((node) => {
+    return discovered.filter((node) => {
       const haystack = [node.title, node.subtitle, node.description, node.address, node.type, ...node.documents.map((document) => `${document.title} ${document.content}`)]
         .filter(Boolean)
         .join(" ")
         .toLowerCase();
       return haystack.includes(value);
     });
-  }, [dossier.nodes, query]);
-  const noteEntries = dossier.nodes
+  }, [discovered, query]);
+  const noteEntries = discovered
     .map((node) => ({ node, body: notes[node.id]?.trim() ?? "" }))
     .filter((item) => item.body.length > 0);
 
@@ -131,9 +152,10 @@ export function InvestigationWorkspace({ dossier, mapsApiKey = "" }: { dossier: 
       return;
     }
     try {
-      const saved = JSON.parse(raw) as { completedMandates?: string[]; unlockedDocumentIds?: string[] };
+      const saved = JSON.parse(raw) as { completedMandates?: string[]; unlockedDocumentIds?: string[]; unlockedNodeIds?: string[] };
       setCompletedMandates(saved.completedMandates ?? []);
-      setUnlockedDocumentIds(saved.unlockedDocumentIds ?? []);
+      setUnlockedDocumentIds(Array.from(new Set([...(dossier.progress?.openedDocuments ?? []), ...(saved.unlockedDocumentIds ?? [])])));
+      setUnlockedNodeIds(saved.unlockedNodeIds ?? []);
     } catch {
       window.localStorage.removeItem(storageKey);
     } finally {
@@ -143,12 +165,18 @@ export function InvestigationWorkspace({ dossier, mapsApiKey = "" }: { dossier: 
 
   useEffect(() => {
     if (!mandateStateLoaded) return;
-    window.localStorage.setItem(storageKey, JSON.stringify({ completedMandates, unlockedDocumentIds }));
-  }, [completedMandates, mandateStateLoaded, storageKey, unlockedDocumentIds]);
+    window.localStorage.setItem(storageKey, JSON.stringify({ completedMandates, unlockedDocumentIds, unlockedNodeIds }));
+  }, [completedMandates, mandateStateLoaded, storageKey, unlockedDocumentIds, unlockedNodeIds]);
+
+  useEffect(() => {
+    if (!discovered.length) return;
+    if (!visibleNodeIds.has(sourceId)) setSourceId(discovered[0].id);
+    if (!visibleNodeIds.has(targetId)) setTargetId(discovered.find((node) => node.id !== sourceId)?.id ?? discovered[0].id);
+  }, [discovered, sourceId, targetId, visibleNodeIds]);
 
   function openNode(nodeId: string, source: "map" | "list" | "timeline" | "connection" | "document" | "search" | "question" = "map") {
     const node = dossier.nodes.find((item) => item.id === nodeId);
-    if (!node) return;
+    if (!node || !visibleNodeIds.has(nodeId)) return;
     setSelectedId(nodeId);
     setOpened((current) => [nodeId, ...current.filter((id) => id !== nodeId)].slice(0, 8));
     if (activeMandate?.focusNodeId === nodeId && !completedMandates.includes(activeMandate.id)) {
@@ -171,19 +199,53 @@ export function InvestigationWorkspace({ dossier, mapsApiKey = "" }: { dossier: 
   }
 
   function completeMandate(mandate: Mandate) {
-    const nextUnlocked = Array.from(new Set([...unlockedDocumentIds, ...mandate.rewardDocumentIds]));
+    const nextUnlocked = Array.from(new Set([...unlockedDocumentIds, ...mandate.availableDocumentIds, ...mandate.rewardDocumentIds]));
     setUnlockedDocumentIds(nextUnlocked);
+    setUnlockedNodeIds((current) => Array.from(new Set([...current, ...mandate.unlockedNodeIds])));
     setCompletedMandates((current) => current.includes(mandate.id) ? current : [...current, mandate.id]);
     setValidationInput("");
     setValidationMessage(`${mandate.rewardText} ${mandate.cliffhanger}`);
     setArchivistMessage(mandate.cliffhanger);
-    if (mandate.rewardDocumentIds[0]) {
-      const reward = dossier.documents.find((document) => document.id === mandate.rewardDocumentIds[0]);
-      const rewardNodeId = reward?.nodeId;
-      if (rewardNodeId) {
-        setSelectedId(rewardNodeId);
-        setOpened((current) => [rewardNodeId, ...current.filter((id) => id !== rewardNodeId)].slice(0, 8));
+
+    mandate.unlockedNodeIds.forEach((nodeId) => {
+      fetch("/api/progress", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ caseId: dossier.id, nodeId })
+      }).catch(() => undefined);
+    });
+
+    if (mandate.sourceNodeId && mandate.targetNodeId) {
+      const alreadyConnected = connections.some((connection) => {
+        const forward = connection.sourceId === mandate.sourceNodeId && connection.targetId === mandate.targetNodeId;
+        const backward = connection.sourceId === mandate.targetNodeId && connection.targetId === mandate.sourceNodeId;
+        return forward || backward;
+      });
+
+      if (!alreadyConnected) {
+        fetch("/api/user-connections", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            caseId: dossier.id,
+            sourceId: mandate.sourceNodeId,
+            targetId: mandate.targetNodeId,
+            label: "aggressione presso",
+            description: "Connessione registrata dopo la validazione del mandato investigativo."
+          })
+        })
+          .then((response) => response.ok ? response.json() as Promise<{ connection: UserConnection }> : null)
+          .then((payload) => {
+            if (payload?.connection) setConnections((current) => [payload.connection, ...current]);
+          })
+          .catch(() => undefined);
       }
+    }
+
+    const unlockedNodeId = mandate.unlockedNodeIds[0];
+    if (unlockedNodeId) {
+      setSelectedId(unlockedNodeId);
+      setOpened((current) => [unlockedNodeId, ...current.filter((id) => id !== unlockedNodeId)].slice(0, 8));
     }
   }
 
@@ -312,6 +374,7 @@ export function InvestigationWorkspace({ dossier, mapsApiKey = "" }: { dossier: 
             view={view}
             setView={setView}
             dossier={dossier}
+            visibleNodes={discovered}
             selected={selected}
             query={query}
             searchResults={searchResults}
@@ -653,6 +716,7 @@ function WorkspaceTools(props: {
   view: WorkspaceView;
   setView: (view: WorkspaceView) => void;
   dossier: WorkspaceCase;
+  visibleNodes: NodeItem[];
   selected?: NodeItem;
   query: string;
   searchResults: NodeItem[];
@@ -703,7 +767,7 @@ function WorkspaceTools(props: {
         {props.view === "desk" ? <DeskPanel {...props} /> : null}
         {props.view === "diary" ? <DiaryPanel {...props} /> : null}
         {props.view === "board" ? <BoardPanel {...props} /> : null}
-        {props.view === "atlas" ? <AtlasPanel dossier={props.dossier} onSelect={props.onSelect} /> : null}
+        {props.view === "atlas" ? <AtlasPanel nodes={props.visibleNodes} onSelect={props.onSelect} /> : null}
       </div>
     </section>
   );
@@ -712,6 +776,7 @@ function WorkspaceTools(props: {
 function DeskPanel({
   selected,
   dossier,
+  visibleNodes,
   notes,
   setNotes,
   officialConnections,
@@ -731,6 +796,7 @@ function DeskPanel({
 }: {
   selected?: NodeItem;
   dossier: WorkspaceCase;
+  visibleNodes: NodeItem[];
   notes: Record<string, string>;
   setNotes: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   officialConnections: CaseConnection[];
@@ -836,6 +902,7 @@ function DiaryPanel({
 function BoardPanel({
   selected,
   dossier,
+  visibleNodes,
   officialConnections,
   userConnections,
   sourceId,
@@ -855,6 +922,7 @@ function BoardPanel({
 }: {
   selected?: NodeItem;
   dossier: WorkspaceCase;
+  visibleNodes: NodeItem[];
   officialConnections: CaseConnection[];
   userConnections: UserConnection[];
   sourceId: string;
@@ -911,7 +979,7 @@ function BoardPanel({
           onValidate={onValidateMandate}
         />
         <ConnectionComposer
-          nodes={dossier.nodes}
+          nodes={visibleNodes}
           sourceId={sourceId}
           setSourceId={setSourceId}
           targetId={targetId}
@@ -926,12 +994,12 @@ function BoardPanel({
   );
 }
 
-function AtlasPanel({ dossier, onSelect }: { dossier: WorkspaceCase; onSelect: (nodeId: string) => void }) {
+function AtlasPanel({ nodes, onSelect }: { nodes: NodeItem[]; onSelect: (nodeId: string) => void }) {
   const groups = [
-    { label: "Luoghi", nodes: dossier.nodes.filter((node) => node.type === "place") },
-    { label: "Persone", nodes: dossier.nodes.filter((node) => node.type === "person") },
-    { label: "Documenti", nodes: dossier.nodes.filter((node) => node.type === "document") },
-    { label: "Eventi", nodes: dossier.nodes.filter((node) => node.type === "event") }
+    { label: "Luoghi", nodes: nodes.filter((node) => node.type === "place") },
+    { label: "Persone", nodes: nodes.filter((node) => node.type === "person") },
+    { label: "Documenti", nodes: nodes.filter((node) => node.type === "document") },
+    { label: "Eventi", nodes: nodes.filter((node) => node.type === "event") }
   ];
   return (
     <div className="grid gap-5 xl:grid-cols-4">
@@ -1012,16 +1080,28 @@ function MandateCard({
 }) {
   if (!mandate) return null;
   const needsText = mandate.kind === "place-answer" || mandate.kind === "deduction";
-  const actionLabel = mandate.kind === "connection" ? "Verifica filo" : mandate.kind === "deduction" ? "Registra deduzione" : "Registra prova";
+  const actionLabel = mandate.kind === "connection" ? "Verifica filo" : "Convalida mandato";
+  const isSuccess = validationMessage.toLowerCase().includes("validato");
 
   return (
     <section className="border border-brass/30 bg-brass/5 p-4">
-      <PanelTitle title={completedAllMandates ? "Ricostruzione registrata" : mandate.title} />
-      <p className="text-sm font-semibold leading-6">{completedAllMandates ? "Il fascicolo resta aperto." : mandate.question}</p>
-      <p className="mt-2 text-sm leading-6 text-archive-500">{completedAllMandates ? "L'Archivio ha registrato la tua ricostruzione. Ora puoi continuare a esplorare, ma non cercare una verità definitiva." : mandate.objective}</p>
+      <PanelTitle title={completedAllMandates ? "Mandato validato" : "Mandato investigativo attivo"} />
+      <p className="text-xs uppercase tracking-[0.2em] text-ledger">{mandate.title}</p>
+      <h4 className="mt-2 text-2xl font-semibold text-brass">{mandate.placeToReach ?? selected.title}</h4>
+      <p className="mt-3 border-l border-brass/50 pl-3 text-sm italic leading-6 text-ink/85">
+        {completedAllMandates ? "Fascicolo aggiornato. Nessuna verità definitiva: solo una ricostruzione più coerente." : mandate.intro}
+      </p>
+      <p className="mt-4 text-sm font-semibold leading-6">{completedAllMandates ? "Il fascicolo resta aperto." : mandate.question}</p>
+      <p className="mt-2 text-sm leading-6 text-archive-500">{completedAllMandates ? "Puoi continuare a esplorare nodi, fonti e connessioni già emerse." : mandate.objective}</p>
 
       {!completedAllMandates ? (
         <>
+          {mandate.observationTask ? (
+            <div className="mt-4 border border-ledger/20 bg-ledger/5 p-3 text-sm leading-6 text-ledger">
+              {mandate.observationTask}
+            </div>
+          ) : null}
+
           <div className="mt-4 grid gap-2 text-sm text-archive-500">
             {mandate.required.map((item, index) => (
               <p key={item} className="flex gap-2">
@@ -1036,13 +1116,17 @@ function MandateCard({
               value={validationInput}
               onChange={(event) => setValidationInput(event.target.value)}
               className="mt-4 h-28 w-full resize-none border border-white/10 bg-black/35 p-3 text-sm leading-6 outline-none focus:border-brass/60"
-              placeholder={mandate.kind === "deduction" ? `Scrivi la deduzione su ${selected.title}...` : "Scrivi il nome del luogo..."}
+              placeholder={mandate.kind === "deduction" ? `Scrivi la deduzione su ${selected.title}...` : "Scrivi la tua deduzione..."}
             />
           ) : (
             <p className="mt-4 border border-white/10 bg-black/35 p-3 text-sm leading-6 text-archive-500">La prova non si scrive: deve comparire in Lavagna come connessione personale.</p>
           )}
 
-          {validationMessage ? <p className="mt-3 border border-rust/40 bg-rust/10 p-3 text-sm leading-6 text-ink">{validationMessage}</p> : null}
+          {validationMessage ? (
+            <p className={`mt-3 border p-3 text-sm leading-6 text-ink ${isSuccess ? "border-brass/45 bg-brass/10" : "border-rust/40 bg-rust/10"}`}>
+              {validationMessage}
+            </p>
+          ) : null}
 
           <button onClick={onValidate} className="mt-4 w-full border border-brass/60 bg-brass px-4 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-black transition hover:brightness-110">
             {actionLabel}
@@ -1057,7 +1141,9 @@ function DocumentShelf({ selected, unlockedDocumentIds, activeMandate }: { selec
   if (!selected.documents.length) {
     return <EmptyState title="Nessun reperto collegato" body="Prova un altro nodo o usa Cerca per trovare fonti nel fascicolo." />;
   }
-  const unlocked = selected.documents.filter((document) => unlockedDocumentIds.includes(document.id));
+  const mandateDocumentIds = activeMandate?.focusNodeId === selected.id ? activeMandate.availableDocumentIds : [];
+  const visibleDocumentIds = new Set([...unlockedDocumentIds, ...(mandateDocumentIds ?? [])]);
+  const unlocked = selected.documents.filter((document) => visibleDocumentIds.has(document.id));
   const lockedCount = selected.documents.length - unlocked.length;
 
   if (!unlocked.length) {
